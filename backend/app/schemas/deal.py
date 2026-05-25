@@ -33,6 +33,7 @@ class AdminDealCreateRequest(BaseModel):
 
 class AdminDealResponse(BaseModel):
     id: UUID
+    offer_id: UUID | None
     step_number: int
 
     given_item_id: UUID
@@ -66,3 +67,16 @@ class PublicExchangeChainItem(BaseModel):
     participant_visible: bool
 
     deal_date: datetime
+
+
+class AdminDealCreateFromOfferRequest(BaseModel):
+    given_item_id: UUID
+
+    owner_type: OwnerType = OwnerType.PERSONAL
+    owner_name: str | None = Field(default=None, max_length=255)
+
+    public_story: str | None = None
+    video_url: str | None = Field(default=None, max_length=1000)
+    photo_url: str | None = Field(default=None, max_length=1000)
+
+    is_public: bool = False

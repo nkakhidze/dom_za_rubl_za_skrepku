@@ -1,4 +1,5 @@
 from app.schemas.deal import (
+    AdminDealCreateFromOfferRequest,
     AdminDealCreateRequest,
     AdminDealResponse,
     PublicExchangeChainItem,
@@ -31,5 +32,6 @@ __all__ = [
     "PublicCurrentItemResponse",
     "AdminDealCreateRequest",
     "AdminDealResponse",
+    "AdminDealCreateFromOfferRequest",
     "PublicExchangeChainItem",
 ]

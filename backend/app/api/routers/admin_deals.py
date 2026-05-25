@@ -1,10 +1,16 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.db.models.deal import Deal
-from app.schemas.deal import AdminDealCreateRequest, AdminDealResponse
+from app.schemas.deal import (
+    AdminDealCreateFromOfferRequest,
+    AdminDealCreateRequest,
+    AdminDealResponse,
+)
 from app.services.deal_service import DealService
 
 router = APIRouter(
@@ -27,7 +33,6 @@ def get_deals(
 
     return db.scalars(query.limit(limit).offset(offset)).all()
 
-
 @router.post("", response_model=AdminDealResponse, status_code=status.HTTP_201_CREATED)
 def create_deal(
     request: AdminDealCreateRequest,
@@ -37,6 +42,27 @@ def create_deal(
 
     try:
         return service.create_deal(request)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
+
+
+@router.post(
+    "/from-offer/{offer_id}",
+    response_model=AdminDealResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_deal_from_offer(
+    offer_id: UUID,
+    request: AdminDealCreateFromOfferRequest,
+    db: Session = Depends(get_db),
+):
+    service = DealService(db)
+
+    try:
+        return service.create_deal_from_offer(offer_id, request)
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
