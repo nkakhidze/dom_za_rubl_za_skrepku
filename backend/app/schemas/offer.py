@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.db.models.messenger_account import MessengerType
-from app.db.models.offer import ExchangePreference, OfferType
+from app.db.models.offer import ExchangePreference, OfferType, OfferStatus
+
 
 
 class OfferCreateRequest(BaseModel):
@@ -40,3 +41,62 @@ class OfferLimitResponse(BaseModel):
     status: str = "limit_reached"
     next_allowed_date: datetime | None = None
     message: str
+
+
+class AdminOfferListItem(BaseModel):
+    id: UUID
+    user_id: UUID
+
+    title: str
+    description: str
+    offer_type: str
+    city: str | None
+
+    declared_value: int | None
+    moderated_value: int | None
+    public_value: int | None
+
+    exchange_preference: str
+    status: str
+
+    is_public: bool
+    public_comment: str | None
+
+    participant_visible: bool
+    participant_public_name: str | None
+
+    valuation_source: str | None
+    moderation_comment: str | None
+
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AdminOfferDetail(AdminOfferListItem):
+    consent_accepted: bool
+    consent_accepted_at: datetime | None
+    consent_text_version: str | None
+
+    requires_contract: bool
+    contract_status: str
+    contract_file_key: str | None
+
+
+class AdminOfferStatusUpdateRequest(BaseModel):
+    status: OfferStatus
+
+
+class AdminOfferModerationUpdateRequest(BaseModel):
+    moderated_value: int | None = Field(default=None, ge=0)
+    public_value: int | None = Field(default=None, ge=0)
+    valuation_source: str | None = None
+    moderation_comment: str | None = None
+
+    is_public: bool | None = None
+    public_comment: str | None = None
+
+    participant_visible: bool | None = None
+    participant_public_name: str | None = Field(default=None, max_length=255)
