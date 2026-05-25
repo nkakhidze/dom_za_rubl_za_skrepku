@@ -5,7 +5,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.messenger_account import MessengerAccount
-from app.db.models.offer import ContractStatus, Offer, OfferStatus
+from app.db.models.offer import ContractStatus, Offer, OfferStatus, OfferType
+from app.db.models.offer_photo import OfferPhoto
 from app.db.models.user import User
 from app.schemas.offer import OfferCreateRequest
 from app.services.offer_limit_service import OfferLimitResult, OfferLimitService
@@ -22,6 +23,12 @@ class OfferService:
     def create_offer(self, request: OfferCreateRequest) -> Offer | OfferLimitResult:
         if not request.consent_accepted:
             raise ValueError("Для отправки предложения нужно принять условия участия")
+
+        if request.offer_type == OfferType.PHYSICAL_ITEM and not request.photo_urls:
+            raise ValueError("Для физического предмета нужно добавить хотя бы одно фото")
+
+        if len(request.photo_urls) > 3:
+            raise ValueError("Можно добавить не больше 3 фото")
 
         user = self._get_or_create_user(request)
 
@@ -61,6 +68,16 @@ class OfferService:
         )
 
         self.db.add(offer)
+        self.db.flush()
+
+        for photo_url in request.photo_urls:
+            self.db.add(
+                OfferPhoto(
+                    offer_id=offer.id,
+                    photo_url=photo_url,
+                )
+            )
+
         self.db.commit()
         self.db.refresh(offer)
 

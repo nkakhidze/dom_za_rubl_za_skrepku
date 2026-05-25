@@ -2,15 +2,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_db
 from app.db.models.offer import Offer
+from app.db.models.offer_photo import OfferPhoto
 from app.schemas.offer import (
     AdminOfferDetail,
     AdminOfferListItem,
     AdminOfferModerationUpdateRequest,
     AdminOfferStatusUpdateRequest,
+    AdminOfferPhotoResponse,
 )
 
 router = APIRouter(
@@ -26,7 +28,11 @@ def get_offers(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    query = select(Offer).order_by(Offer.created_at.desc())
+    query = (
+        select(Offer)
+        .options(selectinload(Offer.photos))
+        .order_by(Offer.created_at.desc())
+    )
 
     if offer_status is not None:
         query = query.where(Offer.status == offer_status)
@@ -43,7 +49,11 @@ def get_offer(
     offer_id: UUID,
     db: Session = Depends(get_db),
 ):
-    offer = db.get(Offer, offer_id)
+    offer = db.scalar(
+        select(Offer)
+        .options(selectinload(Offer.photos))
+        .where(Offer.id == offer_id)
+    )
 
     if offer is None:
         raise HTTPException(
@@ -99,3 +109,21 @@ def update_offer_moderation(
     db.refresh(offer)
 
     return offer
+
+
+@router.get("/{offer_id}/photos", response_model=list[AdminOfferPhotoResponse])
+def get_offer_photos(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+):
+    offer = db.get(Offer, offer_id)
+
+    if offer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Заявка не найдена",
+        )
+
+    query = select(OfferPhoto).where(OfferPhoto.offer_id == offer_id)
+
+    return db.scalars(query).all()

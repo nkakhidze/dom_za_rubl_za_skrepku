@@ -18,6 +18,7 @@ from app.schemas.offer import (
     OfferCreateResponse,
     OfferLimitResponse,
 )
+from app.schemas.file import ImageUploadResponse
 
 __all__ = [
     "OfferCreateRequest",
@@ -34,4 +35,5 @@ __all__ = [
     "AdminDealResponse",
     "AdminDealCreateFromOfferRequest",
     "PublicExchangeChainItem",
+    "ImageUploadResponse",
 ]

@@ -4,7 +4,7 @@ from enum import Enum
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -104,6 +104,16 @@ class Offer(Base):
     )
 
     contract_file_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    photos: Mapped[list["OfferPhoto"]] = relationship(
+        back_populates="offer",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    @property
+    def photo_urls(self) -> list[str]:
+        return [photo.photo_url for photo in self.photos]
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

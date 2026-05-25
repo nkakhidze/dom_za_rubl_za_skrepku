@@ -23,6 +23,7 @@ class OfferCreateRequest(BaseModel):
     city: str | None = Field(default=None, max_length=100)
 
     declared_value: int | None = Field(default=None, ge=0)
+    photo_urls: list[str] = Field(default_factory=list, max_length=3)
 
     exchange_preference: ExchangePreference = ExchangePreference.ANY_OFFER
 
@@ -55,6 +56,8 @@ class AdminOfferListItem(BaseModel):
     declared_value: int | None
     moderated_value: int | None
     public_value: int | None
+
+    photo_urls: list[str] = []
 
     exchange_preference: str
     status: str
@@ -100,3 +103,13 @@ class AdminOfferModerationUpdateRequest(BaseModel):
 
     participant_visible: bool | None = None
     participant_public_name: str | None = Field(default=None, max_length=255)
+
+
+class AdminOfferPhotoResponse(BaseModel):
+    id: UUID
+    offer_id: UUID
+    photo_url: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
