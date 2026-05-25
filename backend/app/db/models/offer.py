@@ -1,12 +1,16 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import ForeignKey, String, Text, Boolean, DateTime, Integer
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class OfferType(str, Enum):
@@ -57,6 +61,8 @@ class Offer(Base):
     offer_type: Mapped[str] = mapped_column(String(50), nullable=False)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Оценки НЕ показываем публично.
+    # Они нужны только для админки и внутренней модерации.
     declared_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     moderated_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     public_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -83,16 +89,31 @@ class Offer(Base):
     participant_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     consent_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    consent_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consent_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     consent_text_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     requires_contract: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     contract_status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         default=ContractStatus.NOT_REQUIRED.value,
     )
+
     contract_file_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+    )

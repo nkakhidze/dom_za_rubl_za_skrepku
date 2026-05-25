@@ -1,15 +1,33 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from enum import Enum
 
-from sqlalchemy import String, DateTime
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class MessengerType(str, Enum):
+    TELEGRAM = "telegram"
+    MAX = "max"
+
+
+class MessengerAccount(Base):
+    __tablename__ = "messenger_accounts"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "messenger_type",
+            "external_user_id",
+            name="uq_messenger_accounts_type_external_id",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -17,9 +35,21 @@ class User(Base):
         default=uuid.uuid4,
     )
 
-    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+    )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    messenger_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    external_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )
