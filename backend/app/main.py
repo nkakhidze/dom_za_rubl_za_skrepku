@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routers import admin_items, admin_offers, health, offers, public
+from app.api.routers import admin_deals, admin_items, admin_offers, health, offers, public
 
 app = FastAPI(
     title="Paperclip House API",
@@ -12,3 +12,4 @@ app.include_router(offers.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
 app.include_router(admin_offers.router, prefix="/api")
 app.include_router(admin_items.router, prefix="/api")
+app.include_router(admin_deals.router, prefix="/api")

@@ -1,3 +1,8 @@
+from app.schemas.deal import (
+    AdminDealCreateRequest,
+    AdminDealResponse,
+    PublicExchangeChainItem,
+)
 from app.schemas.item import (
     AdminItemCreateRequest,
     AdminItemResponse,
@@ -24,4 +29,7 @@ __all__ = [
     "AdminItemCreateRequest",
     "AdminItemResponse",
     "PublicCurrentItemResponse",
+    "AdminDealCreateRequest",
+    "AdminDealResponse",
+    "PublicExchangeChainItem",
 ]
