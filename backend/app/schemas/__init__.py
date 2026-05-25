@@ -1,3 +1,8 @@
+from app.schemas.item import (
+    AdminItemCreateRequest,
+    AdminItemResponse,
+    PublicCurrentItemResponse,
+)
 from app.schemas.offer import (
     AdminOfferDetail,
     AdminOfferListItem,
@@ -16,4 +21,7 @@ __all__ = [
     "AdminOfferDetail",
     "AdminOfferStatusUpdateRequest",
     "AdminOfferModerationUpdateRequest",
+    "AdminItemCreateRequest",
+    "AdminItemResponse",
+    "PublicCurrentItemResponse",
 ]
