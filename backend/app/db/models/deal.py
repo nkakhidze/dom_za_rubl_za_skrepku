@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,10 +15,20 @@ def utc_now() -> datetime:
 class Deal(Base):
     __tablename__ = "deals"
 
+    __table_args__ = (
+        UniqueConstraint("offer_id", name="uq_deals_offer_id"),
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+    )
+
+    offer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("offers.id"),
+        nullable=True,
     )
 
     step_number: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
