@@ -1,12 +1,30 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routers import admin_deals, admin_items, admin_offers, health, offers, public, files
+from app.api.routers import (
+    admin_deals,
+    admin_items,
+    admin_offers,
+    files,
+    health,
+    offers,
+    public,
+    users,
+)
 from app.core.config import settings
 
 app = FastAPI(
     title="Paperclip House API",
     version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.mount(
@@ -18,6 +36,7 @@ app.mount(
 app.include_router(health.router, prefix="/api")
 app.include_router(offers.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
 app.include_router(admin_offers.router, prefix="/api")
 app.include_router(admin_items.router, prefix="/api")
 app.include_router(admin_deals.router, prefix="/api")

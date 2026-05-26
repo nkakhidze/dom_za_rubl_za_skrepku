@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     public_base_url: str = "http://127.0.0.1:8000"
     max_upload_size_mb: int = 5
+    admin_api_token: str = "change_me"
+    telegram_bot_token: str = "change_me"
+    backend_api_url: str = "http://127.0.0.1:8000"
+    cors_origins: list[str] = [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ]
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),

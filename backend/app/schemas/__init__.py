@@ -17,13 +17,20 @@ from app.schemas.offer import (
     OfferCreateRequest,
     OfferCreateResponse,
     OfferLimitResponse,
+    PublicOfferDetail,
+    PublicOfferListItem,
+    UserOfferListItem,
 )
 from app.schemas.file import ImageUploadResponse
+from app.schemas.user import TelegramUserCreateRequest, TelegramUserResponse
 
 __all__ = [
     "OfferCreateRequest",
     "OfferCreateResponse",
     "OfferLimitResponse",
+    "PublicOfferListItem",
+    "PublicOfferDetail",
+    "UserOfferListItem",
     "AdminOfferListItem",
     "AdminOfferDetail",
     "AdminOfferStatusUpdateRequest",
@@ -36,4 +43,6 @@ __all__ = [
     "AdminDealCreateFromOfferRequest",
     "PublicExchangeChainItem",
     "ImageUploadResponse",
+    "TelegramUserCreateRequest",
+    "TelegramUserResponse",
 ]

@@ -55,6 +55,8 @@ class Offer(Base):
         nullable=False,
     )
 
+    user: Mapped["User"] = relationship(back_populates="offers")
+
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -114,6 +116,13 @@ class Offer(Base):
     @property
     def photo_urls(self) -> list[str]:
         return [photo.photo_url for photo in self.photos]
+
+    @property
+    def public_participant_name(self) -> str | None:
+        if not self.participant_visible:
+            return None
+
+        return self.participant_public_name
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

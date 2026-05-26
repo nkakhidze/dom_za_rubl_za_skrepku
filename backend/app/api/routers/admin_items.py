@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_admin_access
 from app.db.models.item import Item
 from app.schemas.item import AdminItemCreateRequest, AdminItemResponse
 
 router = APIRouter(
     prefix="/admin/items",
     tags=["admin items"],
+    dependencies=[Depends(require_admin_access)],
 )
 
 @router.get("/{item_id}", response_model=AdminItemResponse)

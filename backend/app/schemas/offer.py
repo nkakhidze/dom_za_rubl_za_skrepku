@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.db.models.messenger_account import MessengerType
-from app.db.models.offer import ExchangePreference, OfferType, OfferStatus
+from app.db.models.offer import ExchangePreference, OfferStatus, OfferType
 
 
 
@@ -42,6 +42,58 @@ class OfferLimitResponse(BaseModel):
     status: str = "limit_reached"
     next_allowed_date: datetime | None = None
     message: str
+
+
+class PublicOfferListItem(BaseModel):
+    id: UUID
+
+    title: str
+    description: str
+    offer_type: str
+    city: str | None
+
+    public_value: int | None
+    public_comment: str | None
+
+    photo_urls: list[str] = Field(default_factory=list)
+
+    participant_public_name: str | None = Field(
+        default=None,
+        validation_alias="public_participant_name",
+    )
+
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PublicOfferDetail(PublicOfferListItem):
+    pass
+
+
+class UserOfferListItem(BaseModel):
+    id: UUID
+
+    title: str
+    description: str
+    offer_type: str
+    city: str | None
+
+    declared_value: int | None
+    status: str
+    is_public: bool
+    public_comment: str | None
+
+    participant_visible: bool
+    participant_public_name: str | None
+
+    photo_urls: list[str] = Field(default_factory=list)
+
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class AdminOfferListItem(BaseModel):

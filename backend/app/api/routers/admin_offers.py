@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_admin_access
 from app.db.models.offer import Offer
 from app.db.models.offer_photo import OfferPhoto
 from app.schemas.offer import (
@@ -14,10 +14,12 @@ from app.schemas.offer import (
     AdminOfferStatusUpdateRequest,
     AdminOfferPhotoResponse,
 )
+from app.services.offer_moderation_service import OfferModerationService
 
 router = APIRouter(
     prefix="/admin/offers",
     tags=["admin offers"],
+    dependencies=[Depends(require_admin_access)],
 )
 
 
@@ -92,23 +94,15 @@ def update_offer_moderation(
     request: AdminOfferModerationUpdateRequest,
     db: Session = Depends(get_db),
 ):
-    offer = db.get(Offer, offer_id)
+    service = OfferModerationService(db)
 
-    if offer is None:
+    try:
+        return service.moderate_offer(offer_id, request)
+    except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена",
-        )
-
-    update_data = request.model_dump(exclude_unset=True)
-
-    for field_name, field_value in update_data.items():
-        setattr(offer, field_name, field_value)
-
-    db.commit()
-    db.refresh(offer)
-
-    return offer
+            detail=str(error),
+        ) from error
 
 
 @router.get("/{offer_id}/photos", response_model=list[AdminOfferPhotoResponse])

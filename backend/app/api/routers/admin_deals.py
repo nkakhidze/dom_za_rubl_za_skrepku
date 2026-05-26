@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_admin_access
 from app.db.models.deal import Deal
 from app.schemas.deal import (
     AdminDealCreateFromOfferRequest,
@@ -16,6 +16,7 @@ from app.services.deal_service import DealService
 router = APIRouter(
     prefix="/admin/deals",
     tags=["admin deals"],
+    dependencies=[Depends(require_admin_access)],
 )
 
 

@@ -1,9 +1,18 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_db
 from app.db.models.offer import Offer
-from app.schemas.offer import OfferCreateRequest, OfferCreateResponse, OfferLimitResponse
+from app.schemas.offer import (
+    OfferCreateRequest,
+    OfferCreateResponse,
+    OfferLimitResponse,
+    PublicOfferDetail,
+    PublicOfferListItem,
+)
 from app.services.offer_limit_service import OfferLimitResult
 from app.services.offer_service import OfferService
 
@@ -11,6 +20,43 @@ router = APIRouter(
     prefix="/offers",
     tags=["offers"],
 )
+
+
+@router.get("", response_model=list[PublicOfferListItem])
+def get_public_offers(
+    db: Session = Depends(get_db),
+):
+    query = (
+        select(Offer)
+        .options(selectinload(Offer.photos))
+        .where(Offer.is_public.is_(True))
+        .order_by(Offer.created_at.desc())
+    )
+
+    return db.scalars(query).all()
+
+
+@router.get("/{offer_id}", response_model=PublicOfferDetail)
+def get_public_offer(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+):
+    offer = db.scalar(
+        select(Offer)
+        .options(selectinload(Offer.photos))
+        .where(
+            Offer.id == offer_id,
+            Offer.is_public.is_(True),
+        )
+    )
+
+    if offer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offer not found",
+        )
+
+    return offer
 
 
 @router.post(
