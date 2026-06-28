@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 
+import { AuthUser, getAdminToken, getMe } from "./api/client";
 import { OfferDetailPage } from "./pages/OfferDetailPage";
 import { OffersPage } from "./pages/OffersPage";
+import { PublicItemPage } from "./pages/PublicItemPage";
 import { NewOfferPage } from "./pages/NewOfferPage";
 import { MyDealsPage } from "./pages/MyDealsPage";
 import { MyItemsPage } from "./pages/MyItemsPage";
@@ -16,6 +18,33 @@ import { AdminOffersPage } from "./pages/admin/AdminOffersPage";
 import "./styles.css";
 
 function App() {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    function refreshCurrentUser() {
+      if (!getAdminToken()) {
+        setCurrentUser(null);
+        return;
+      }
+
+      getMe()
+        .then(setCurrentUser)
+        .catch(() => setCurrentUser(null));
+    }
+
+    refreshCurrentUser();
+    window.addEventListener("paperclip-admin-token-changed", refreshCurrentUser);
+
+    return () => {
+      window.removeEventListener("paperclip-admin-token-changed", refreshCurrentUser);
+    };
+  }, []);
+
+  const canSeeAdminLinks =
+    currentUser?.roles.some((role) =>
+      ["editor", "moderator", "admin", "super_admin"].includes(role),
+    ) || false;
+
   return (
     <BrowserRouter>
       <header className="topbar">
@@ -27,9 +56,13 @@ function App() {
           <Link to="/new-offer">Подать оффер</Link>
           <Link to="/my/items">Мои предметы</Link>
           <Link to="/my/deals">Мои сделки</Link>
-          <Link to="/admin/offers">Заявки</Link>
-          <Link to="/admin/items">Предметы</Link>
-          <Link to="/admin/deals">Сделки</Link>
+          {canSeeAdminLinks && (
+            <>
+              <Link to="/admin/offers">Заявки</Link>
+              <Link to="/admin/items">Предметы</Link>
+              <Link to="/admin/deals">Сделки</Link>
+            </>
+          )}
           <Link to="/admin/login">Войти</Link>
         </nav>
       </header>
@@ -37,6 +70,7 @@ function App() {
       <main className="page">
         <Routes>
           <Route path="/" element={<OffersPage />} />
+          <Route path="/items/:itemId" element={<PublicItemPage />} />
           <Route path="/offers/:offerId" element={<OfferDetailPage />} />
           <Route path="/new-offer" element={<NewOfferPage />} />
           <Route path="/my/items" element={<MyItemsPage />} />

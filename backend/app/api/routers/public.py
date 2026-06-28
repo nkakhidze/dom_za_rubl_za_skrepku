@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
 from sqlalchemy import select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, selectinload
 
 from app.api.deps import get_db
 from app.db.models.deal import Deal, DealStatus
 from app.db.models.item import Item
 from app.schemas.deal import PublicExchangeChainDealItem, PublicExchangeChainItem
-from app.schemas.item import PublicCurrentItemResponse
+from app.schemas.item import PublicCurrentItemResponse, PublicItemDetailResponse
 
 router = APIRouter(
     prefix="/public",
@@ -75,13 +76,38 @@ def get_exchange_chain(
                 title=deal_given_item.title,
                 description=deal_given_item.description,
                 photo_url=deal_given_item.photo_url,
+                photo_urls=deal_given_item.photo_urls,
             ),
             received_item=PublicExchangeChainDealItem(
                 id=deal_received_item.id,
                 title=deal_received_item.title,
                 description=deal_received_item.description,
                 photo_url=deal_received_item.photo_url,
+                photo_urls=deal_received_item.photo_urls,
             ),
         )
         for deal, deal_given_item, deal_received_item in rows
     ]
+
+
+@router.get("/items/{item_id}", response_model=PublicItemDetailResponse)
+def get_public_item(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+):
+    item = db.scalar(
+        select(Item)
+        .options(selectinload(Item.photos))
+        .where(
+            Item.id == item_id,
+            Item.is_public.is_(True),
+        )
+    )
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Предмет не найден",
+        )
+
+    return item

@@ -88,6 +88,18 @@ class Item(Base):
 
     public_story: Mapped[str | None] = mapped_column(Text, nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    vk_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    tiktok_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    youtube_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    dzen_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    rutube_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    instagram_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    photos: Mapped[list["ItemPhoto"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        order_by="ItemPhoto.sort_order",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -101,3 +113,12 @@ class Item(Base):
         default=utc_now,
         onupdate=utc_now,
     )
+
+    @property
+    def photo_urls(self) -> list[str]:
+        urls = [photo.photo_url for photo in self.photos]
+
+        if not urls and self.photo_url:
+            urls.append(self.photo_url)
+
+        return urls

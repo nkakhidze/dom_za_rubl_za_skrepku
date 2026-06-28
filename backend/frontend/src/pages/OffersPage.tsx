@@ -90,7 +90,9 @@ export function OffersPage() {
               </div>
               <div className="offer-card-body">
                 <p className="chain-label">{node.incomingDeal ? "Получили" : "Старт"}</p>
-                <h2>{node.item.title}</h2>
+                <h2>
+                  <Link to={`/items/${node.item.id}`}>{node.item.title}</Link>
+                </h2>
                 {node.item.description && <p>{node.item.description}</p>}
 
                 {node.incomingDeal && (

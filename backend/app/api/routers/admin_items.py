@@ -2,11 +2,20 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_db, require_admin_access
+from app.api.deps import get_db, require_admin_access, require_any_role
+from app.db.models.auth import RoleCode
+from app.db.models.deal import Deal
 from app.db.models.item import Item, ItemStatus
-from app.schemas.item import AdminItemCreateRequest, AdminItemResponse, AdminItemUpdateRequest
+from app.db.models.item_photo import ItemPhoto
+from app.schemas.item import (
+    AdminItemCreateRequest,
+    AdminItemPhotoCreateRequest,
+    AdminItemPhotoResponse,
+    AdminItemResponse,
+    AdminItemUpdateRequest,
+)
 
 router = APIRouter(
     prefix="/admin/items",
@@ -38,7 +47,24 @@ def get_items(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    query = select(Item).order_by(Item.sequence_number.asc().nullslast(), Item.created_at.desc())
+    received_deal_date = (
+        select(Deal.deal_date)
+        .where(Deal.received_item_id == Item.id)
+        .order_by(Deal.deal_date.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+    query = (
+        select(Item)
+        .options(selectinload(Item.photos))
+        .order_by(
+            Item.is_current.desc(),
+            received_deal_date.desc().nullslast(),
+            Item.sequence_number.desc().nullslast(),
+            Item.created_at.desc(),
+        )
+    )
 
     if is_current is not None:
         query = query.where(Item.is_current == is_current)
@@ -80,6 +106,12 @@ def create_item(
         is_public=request.is_public,
         public_story=request.public_story,
         photo_url=request.photo_url,
+        vk_url=request.vk_url,
+        tiktok_url=request.tiktok_url,
+        youtube_url=request.youtube_url,
+        dzen_url=request.dzen_url,
+        rutube_url=request.rutube_url,
+        instagram_url=request.instagram_url,
     )
 
     db.add(item)
@@ -130,3 +162,65 @@ def update_item(
     db.refresh(item)
 
     return item
+
+
+@router.post(
+    "/{item_id}/photos",
+    response_model=AdminItemPhotoResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_any_role(RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
+def add_item_photo(
+    item_id: UUID,
+    request: AdminItemPhotoCreateRequest,
+    db: Session = Depends(get_db),
+):
+    item = db.get(Item, item_id)
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Предмет не найден",
+        )
+
+    photo = ItemPhoto(
+        item_id=item.id,
+        photo_url=request.photo_url,
+        sort_order=request.sort_order,
+    )
+
+    if item.photo_url is None:
+        item.photo_url = request.photo_url
+
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+
+    return photo
+
+
+@router.delete(
+    "/{item_id}/photos/{photo_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_any_role(RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
+def delete_item_photo(
+    item_id: UUID,
+    photo_id: UUID,
+    db: Session = Depends(get_db),
+):
+    photo = db.scalar(
+        select(ItemPhoto).where(
+            ItemPhoto.id == photo_id,
+            ItemPhoto.item_id == item_id,
+        )
+    )
+
+    if photo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Фото не найдено",
+        )
+
+    db.delete(photo)
+    db.commit()

@@ -29,13 +29,31 @@ export type PublicExchangeChainItem = {
     title: string;
     description: string | null;
     photo_url: string | null;
+    photo_urls: string[];
   };
   received_item: {
     id: string;
     title: string;
     description: string | null;
     photo_url: string | null;
+    photo_urls: string[];
   };
+};
+
+export type PublicItemDetail = {
+  id: string;
+  title: string;
+  description: string | null;
+  item_type: string;
+  public_story: string | null;
+  photo_url: string | null;
+  photo_urls: string[];
+  vk_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
+  dzen_url: string | null;
+  rutube_url: string | null;
+  instagram_url: string | null;
 };
 
 export type CreateOfferPayload = {
@@ -131,6 +149,20 @@ export type AdminItem = {
   sequence_number: number | null;
   public_story: string | null;
   photo_url: string | null;
+  photo_urls: string[];
+  photos: Array<{
+    id: string;
+    item_id: string;
+    photo_url: string;
+    sort_order: number;
+    created_at: string;
+  }>;
+  vk_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
+  dzen_url: string | null;
+  rutube_url: string | null;
+  instagram_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -147,6 +179,12 @@ export type AdminItemCreatePayload = {
   is_public: boolean;
   public_story?: string | null;
   photo_url?: string | null;
+  vk_url?: string | null;
+  tiktok_url?: string | null;
+  youtube_url?: string | null;
+  dzen_url?: string | null;
+  rutube_url?: string | null;
+  instagram_url?: string | null;
   sequence_number?: number | null;
 };
 
@@ -302,10 +340,12 @@ export function getAdminToken(): string {
 
 export function setAdminToken(token: string) {
   window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
+  window.dispatchEvent(new Event("paperclip-admin-token-changed"));
 }
 
 export function clearAdminToken() {
   window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+  window.dispatchEvent(new Event("paperclip-admin-token-changed"));
 }
 
 function adminHeaders() {
@@ -434,6 +474,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -443,6 +487,10 @@ export function getPublicOffers(): Promise<PublicOffer[]> {
 
 export function getPublicExchangeChain(): Promise<PublicExchangeChainItem[]> {
   return request<PublicExchangeChainItem[]>("/api/public/exchange-chain");
+}
+
+export function getPublicItemById(itemId: string): Promise<PublicItemDetail> {
+  return request<PublicItemDetail>(`/api/public/items/${itemId}`);
 }
 
 export function getPublicOfferById(offerId: string): Promise<PublicOffer> {
@@ -584,6 +632,27 @@ export function updateAdminItem(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function addAdminItemPhoto(
+  itemId: string,
+  payload: { photo_url: string; sort_order?: number },
+): Promise<AdminItem["photos"][number]> {
+  return request<AdminItem["photos"][number]>(`/api/admin/items/${itemId}/photos`, {
+    method: "POST",
+    headers: {
+      ...adminHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminItemPhoto(itemId: string, photoId: string): Promise<void> {
+  return request<void>(`/api/admin/items/${itemId}/photos/${photoId}`, {
+    method: "DELETE",
+    headers: adminHeaders(),
   });
 }
 
