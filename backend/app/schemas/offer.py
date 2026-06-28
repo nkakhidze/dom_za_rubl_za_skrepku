@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.db.models.messenger_account import MessengerType
-from app.db.models.offer import ExchangePreference, OfferStatus, OfferType
+from app.db.models.offer import ExchangePreference, OfferStatus, OfferType, OfferVisibilityStatus
 
 
 
@@ -30,6 +30,30 @@ class OfferCreateRequest(BaseModel):
     consent_accepted: bool
     participant_visible: bool = False
     participant_public_name: str | None = Field(default=None, max_length=255)
+
+    @field_validator("declared_value", mode="before")
+    @classmethod
+    def normalize_declared_value(cls, value):
+        if value in (None, ""):
+            return value
+
+        if isinstance(value, str):
+            normalized = value.strip().replace(" ", "")
+
+            if normalized.isdigit() and len(normalized) > 6:
+                return 400000
+
+            value = normalized
+
+        try:
+            parsed_value = int(value)
+        except (TypeError, ValueError):
+            return value
+
+        if parsed_value > 400000:
+            return 400000
+
+        return parsed_value
 
 
 class OfferCreateResponse(BaseModel):
@@ -116,6 +140,8 @@ class AdminOfferListItem(BaseModel):
     exchange_preference: str
     status: str
     status_label: str
+    visibility_status: str
+    sort_priority: int
 
     is_public: bool
     public_comment: str | None
@@ -147,11 +173,20 @@ class AdminOfferStatusUpdateRequest(BaseModel):
     status: OfferStatus
 
 
+class AdminOfferSelectNextRequest(BaseModel):
+    public_story: str | None = None
+    video_url: str | None = Field(default=None, max_length=1000)
+    photo_url: str | None = Field(default=None, max_length=1000)
+    is_public: bool = True
+
+
 class AdminOfferModerationUpdateRequest(BaseModel):
     moderated_value: int | None = Field(default=None, ge=0)
     public_value: int | None = Field(default=None, ge=0)
     valuation_source: str | None = None
     moderation_comment: str | None = None
+    visibility_status: OfferVisibilityStatus | None = None
+    sort_priority: int | None = Field(default=None)
 
     is_public: bool | None = None
     public_comment: str | None = None

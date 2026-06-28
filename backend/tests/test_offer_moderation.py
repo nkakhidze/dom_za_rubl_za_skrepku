@@ -76,6 +76,24 @@ class OfferModerationTestCase(unittest.TestCase):
         self.assertIsInstance(offer, Offer)
         return offer
 
+    def test_offer_create_request_clamps_too_large_declared_value(self) -> None:
+        request = OfferCreateRequest(
+            messenger_type="web",
+            external_user_id="web-user",
+            title="Big price offer",
+            description="A useful item with a very large user-entered price.",
+            offer_type="physical_item",
+            city="Tomsk",
+            declared_value="999999999999999999999999999999999999",
+            photo_urls=["http://127.0.0.1:8000/uploads/images/photo.jpg"],
+            exchange_preference="any_offer",
+            consent_accepted=True,
+            participant_visible=True,
+            participant_public_name="Participant",
+        )
+
+        self.assertEqual(request.declared_value, 400000)
+
     def test_publication_sends_telegram_notification(self) -> None:
         class FakeNotificationService:
             def __init__(self) -> None:

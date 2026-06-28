@@ -6,6 +6,26 @@ import { getWebExternalUserId } from "../utils/webUser";
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
 
+const MAX_DECLARED_VALUE = 400000;
+
+function parseDeclaredValue(rawValue: string): number | null {
+  const normalized = rawValue.trim().replace(/\s+/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    return Number.NaN;
+  }
+
+  if (normalized.length > MAX_DECLARED_VALUE.toString().length) {
+    return MAX_DECLARED_VALUE;
+  }
+
+  return Math.min(Number(normalized), MAX_DECLARED_VALUE);
+}
+
 export function NewOfferPage() {
   const externalUserId = useMemo(() => getWebExternalUserId(), []);
   const [title, setTitle] = useState("");
@@ -41,25 +61,60 @@ export function NewOfferPage() {
     setFormError(null);
     setSubmitState("idle");
 
-    if (!title.trim()) {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    const trimmedCity = city.trim();
+    const trimmedParticipantName = participantPublicName.trim();
+
+    if (!trimmedTitle) {
       setFormError("Введите название.");
       return;
     }
 
-    if (!description.trim()) {
+    if (trimmedTitle.length < 2) {
+      setFormError("Название должно быть не короче 2 символов.");
+      return;
+    }
+
+    if (trimmedTitle.length > 255) {
+      setFormError("Название должно быть не длиннее 255 символов.");
+      return;
+    }
+
+    if (!trimmedDescription) {
       setFormError("Введите описание.");
       return;
     }
 
-    if (!city.trim()) {
+    if (trimmedDescription.length < 10) {
+      setFormError("Описание должно быть не короче 10 символов.");
+      return;
+    }
+
+    if (!trimmedCity) {
       setFormError("Укажите город.");
       return;
     }
 
-    const value = Number(declaredValue);
+    if (trimmedCity.length > 100) {
+      setFormError("Название города должно быть не длиннее 100 символов.");
+      return;
+    }
 
-    if (!Number.isFinite(value) || value < 0) {
-      setFormError("Укажите стоимость числом.");
+    if (trimmedParticipantName.length > 255) {
+      setFormError("Имя участника должно быть не длиннее 255 символов.");
+      return;
+    }
+
+    const value = parseDeclaredValue(declaredValue);
+
+    if (value === null) {
+      setFormError("Укажите оценку в рублях.");
+      return;
+    }
+
+    if (!Number.isFinite(value)) {
+      setFormError("Оценка должна быть целым числом без букв и знаков.");
       return;
     }
 
@@ -83,15 +138,13 @@ export function NewOfferPage() {
         username: null,
         first_name: null,
         last_name: null,
-        title: title.trim(),
-        description: description.trim(),
+        title: trimmedTitle,
+        description: trimmedDescription,
         offer_type: offerType,
-        city: city.trim(),
+        city: trimmedCity,
         declared_value: value,
         exchange_preference: exchangePreference,
-        participant_public_name: participantVisible
-          ? participantPublicName.trim() || null
-          : participantPublicName.trim() || null,
+        participant_public_name: trimmedParticipantName || null,
         participant_visible: participantVisible,
         consent_accepted: true,
         photo_urls: uploaded.map((item) => item.photo_url),

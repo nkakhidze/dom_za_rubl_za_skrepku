@@ -1,15 +1,34 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
   AdminOffer,
   AuthUser,
   clearAdminToken,
-  getAdminOffers,
+  getAdminOffersFiltered,
   getMe,
 } from "../../api/client";
 
-type Filter = "all" | "public" | "private";
+const OFFER_STATUS_OPTIONS = ["all", "new", "reviewed", "selected", "hidden", "rejected"];
+const STATUS_LABELS: Record<string, string> = {
+  all: "Все рабочие статусы",
+  new: "Новая заявка",
+  reviewed: "Просмотрена",
+  selected: "Выбрана в цепочку",
+  hidden: "Скрыта",
+  rejected: "Отклонена",
+};
+const VISIBILITY_OPTIONS = ["normal", "low_priority", "hidden"];
+const VISIBILITY_LABELS: Record<string, string> = {
+  normal: "Обычная",
+  low_priority: "Низкий приоритет",
+  hidden: "Скрытая",
+};
+const SORT_OPTIONS = [
+  ["value_desc", "По стоимости"],
+  ["created_at_desc", "По дате"],
+  ["priority", "По приоритету"],
+] as const;
 
 export function AdminOffersPage() {
   const navigate = useNavigate();
@@ -17,8 +36,14 @@ export function AdminOffersPage() {
   const [offers, setOffers] = useState<AdminOffer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [visibilityFilters, setVisibilityFilters] = useState<string[]>(VISIBILITY_OPTIONS);
+  const [sortMode, setSortMode] = useState("value_desc");
+
+  const visibleVisibilityFilters =
+    visibilityFilters.length === 0 || visibilityFilters.length === VISIBILITY_OPTIONS.length
+      ? undefined
+      : visibilityFilters;
 
   function logout() {
     clearAdminToken();
@@ -33,7 +58,13 @@ export function AdminOffersPage() {
     setError(null);
 
     try {
-      setOffers(await getAdminOffers());
+      setOffers(
+        await getAdminOffersFiltered({
+          offer_status: statusFilter,
+          visibility_status: visibleVisibilityFilters,
+          sort: sortMode,
+        }),
+      );
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -57,26 +88,19 @@ export function AdminOffersPage() {
       });
   }, []);
 
-  const statuses = useMemo(
-    () => Array.from(new Set(offers.map((offer) => offer.status))).sort(),
-    [offers],
-  );
-
-  const filteredOffers = offers.filter((offer) => {
-    if (filter === "public" && !offer.is_public) {
-      return false;
+  useEffect(() => {
+    if (currentUser) {
+      void loadOffers();
     }
+  }, [statusFilter, visibilityFilters, sortMode]);
 
-    if (filter === "private" && offer.is_public) {
-      return false;
-    }
-
-    if (statusFilter !== "all" && offer.status !== statusFilter) {
-      return false;
-    }
-
-    return true;
-  });
+  function toggleVisibilityFilter(visibility: string) {
+    setVisibilityFilters((current) =>
+      current.includes(visibility)
+        ? current.filter((item) => item !== visibility)
+        : [...current, visibility],
+    );
+  }
 
   return (
     <section>
@@ -116,26 +140,48 @@ export function AdminOffersPage() {
       {isLoading && <p className="muted">Загружаем офферы...</p>}
 
       <div className="filters">
-        <select value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
-          <option value="all">Все</option>
-          <option value="public">Опубликованные</option>
-          <option value="private">Неопубликованные</option>
-        </select>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
           <option value="all">Все статусы</option>
-          {statuses.map((status) => (
+          {OFFER_STATUS_OPTIONS.filter((status) => status !== "all").map((status) => (
             <option value={status} key={status}>
-              {status}
+              {STATUS_LABELS[status]}
+            </option>
+          ))}
+        </select>
+        <details className="filter-dropdown">
+          <summary>
+            Видимость:{" "}
+            {visibilityFilters.length === VISIBILITY_OPTIONS.length || visibilityFilters.length === 0
+              ? "все"
+              : visibilityFilters.map((item) => VISIBILITY_LABELS[item]).join(", ")}
+          </summary>
+          <div className="filter-dropdown-menu">
+            {VISIBILITY_OPTIONS.map((visibility) => (
+              <label className="checkbox" key={visibility}>
+                <input
+                  checked={visibilityFilters.includes(visibility)}
+                  onChange={() => toggleVisibilityFilter(visibility)}
+                  type="checkbox"
+                />
+                {VISIBILITY_LABELS[visibility]}
+              </label>
+            ))}
+          </div>
+        </details>
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+          {SORT_OPTIONS.map(([value, label]) => (
+            <option value={value} key={value}>
+              {label}
             </option>
           ))}
         </select>
       </div>
 
-      {!isLoading && filteredOffers.length === 0 ? (
+      {!isLoading && offers.length === 0 ? (
         <p className="notice">Заявок пока нет.</p>
       ) : (
         <div className="admin-list">
-          {filteredOffers.map((offer) => (
+          {offers.map((offer) => (
             <article className="admin-row" key={offer.id}>
               <div className="admin-thumb">
                 {offer.photo_urls[0] ? (
@@ -148,11 +194,12 @@ export function AdminOffersPage() {
                 <h2>{offer.title}</h2>
                 <p className="meta">
                   заявка {offer.id.slice(0, 8)} · {offer.city || "город не указан"} ·{" "}
-                  {offer.status_label || offer.status} · {offer.is_public ? "public" : "private"}
+                  {offer.status_label || STATUS_LABELS[offer.status] || offer.status} · видимость:{" "}
+                  {VISIBILITY_LABELS[offer.visibility_status] || offer.visibility_status}
                 </p>
                 <p className="meta">
-                  declared: {offer.declared_value ?? "-"} · moderated:{" "}
-                  {offer.moderated_value ?? "-"} · public: {offer.public_value ?? "-"}
+                  оценка пользователя: {offer.declared_value ?? "-"} · оценка админа:{" "}
+                  {offer.moderated_value ?? "-"} · приоритет: {offer.sort_priority}
                 </p>
                 {offer.participant_public_name && (
                   <p className="meta">Участник: {offer.participant_public_name}</p>

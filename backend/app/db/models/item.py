@@ -27,6 +27,11 @@ class OwnerType(str, Enum):
 
 
 class ItemStatus(str, Enum):
+    CURRENT = "current"
+    PAST = "past"
+    FINAL = "final"
+    PLANNED = "planned"
+    # Legacy statuses used by the old response-item flow.
     ACTIVE = "active"
     ARCHIVED = "archived"
 
@@ -43,6 +48,11 @@ class Item(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
+        nullable=True,
+    )
+    source_offer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("offers.id"),
         nullable=True,
     )
 
@@ -69,8 +79,9 @@ class Item(Base):
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default=ItemStatus.ACTIVE.value,
+        default=ItemStatus.CURRENT.value,
     )
+    sequence_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

@@ -1,21 +1,23 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_db, require_admin_access, require_any_role
 from app.db.models.auth import RoleCode
-from app.db.models.offer import Offer
+from app.db.models.offer import Offer, OfferStatus
 from app.db.models.offer_photo import OfferPhoto
 from app.schemas.offer import (
     AdminOfferDetail,
     AdminOfferListItem,
     AdminOfferModerationUpdateRequest,
+    AdminOfferSelectNextRequest,
     AdminOfferStatusUpdateRequest,
     AdminOfferPhotoResponse,
 )
 from app.services.offer_moderation_service import OfferModerationService
+from app.schemas.deal import AdminDealResponse
 
 router = APIRouter(
     prefix="/admin/offers",
@@ -28,17 +30,45 @@ router = APIRouter(
 def get_offers(
     db: Session = Depends(get_db),
     offer_status: str | None = Query(default=None, description="Фильтр по статусу заявки"),
+    visibility_status: list[str] | None = Query(default=None, description="Фильтр по видимости заявки"),
+    sort: str = Query(default="value_desc", description="value_desc|created_at_desc|moderated_value_desc|priority"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
     query = (
         select(Offer)
         .options(selectinload(Offer.photos))
-        .order_by(Offer.created_at.desc())
     )
 
     if offer_status is not None:
         query = query.where(Offer.status == offer_status)
+    else:
+        query = query.where(Offer.status != OfferStatus.SELECTED.value)
+
+    if visibility_status is not None:
+        query = query.where(Offer.visibility_status.in_(visibility_status))
+
+    user_value_for_sort = case(
+        (Offer.moderated_value.is_(None), Offer.declared_value),
+        (Offer.declared_value <= Offer.moderated_value, Offer.declared_value),
+        else_=None,
+    )
+
+    if sort in {"value_desc", "moderated_value_desc"}:
+        query = query.order_by(
+            Offer.visibility_status.asc(),
+            Offer.moderated_value.desc().nullslast(),
+            user_value_for_sort.desc().nullslast(),
+            Offer.created_at.desc(),
+        )
+    elif sort == "priority":
+        query = query.order_by(
+            Offer.visibility_status.asc(),
+            Offer.sort_priority.desc(),
+            Offer.created_at.desc(),
+        )
+    else:
+        query = query.order_by(Offer.created_at.desc())
 
     offers = db.scalars(
         query.limit(limit).offset(offset)
@@ -105,6 +135,34 @@ def update_offer_moderation(
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+
+@router.post(
+    "/{offer_id}/select-next",
+    response_model=AdminDealResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_any_role(RoleCode.MODERATOR.value, RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
+def select_offer_as_next_item(
+    offer_id: UUID,
+    request: AdminOfferSelectNextRequest,
+    db: Session = Depends(get_db),
+):
+    service = OfferModerationService(db)
+
+    try:
+        return service.select_next_offer(
+            offer_id,
+            public_story=request.public_story,
+            video_url=request.video_url,
+            photo_url=request.photo_url,
+            is_public=request.is_public,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error),
         ) from error
 

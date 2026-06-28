@@ -5,22 +5,37 @@ import {
   AdminItem,
   AdminOffer,
   AdminOfferPhoto,
-  createDealFromOffer,
   getAdminItems,
   getAdminOfferById,
   getAdminOfferPhotos,
+  selectOfferAsNext,
   updateOfferModeration,
   updateOfferStatus,
 } from "../../api/client";
 
-const OFFER_STATUSES = [
-  "new",
-  "moderation",
-  "approved",
-  "published",
-  "rejected",
-  "archived",
-];
+const OFFER_STATUSES = ["new", "reviewed", "hidden", "rejected"];
+const STATUS_LABELS: Record<string, string> = {
+  new: "Новая заявка",
+  reviewed: "Просмотрена",
+  selected: "Выбрана в цепочку",
+  hidden: "Скрыта",
+  rejected: "Отклонена",
+};
+const VISIBILITY_LABELS: Record<string, string> = {
+  normal: "Обычная",
+  low_priority: "Низкий приоритет",
+  hidden: "Скрытая",
+};
+const EXCHANGE_PREFERENCE_LABELS: Record<string, string> = {
+  any_offer: "Любой обмен",
+  comparable_value_only: "Сопоставимая ценность",
+};
+const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  not_required: "Не требуется",
+  required: "Требуется",
+  prepared: "Подготовлен",
+  signed: "Подписан",
+};
 
 function numberOrNull(value: string): number | null {
   if (!value.trim()) {
@@ -46,6 +61,10 @@ export function AdminOfferDetailPage() {
   const [moderationComment, setModerationComment] = useState("");
   const [publicComment, setPublicComment] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [visibilityStatus, setVisibilityStatus] = useState<"normal" | "low_priority" | "hidden">(
+    "normal",
+  );
+  const [sortPriority, setSortPriority] = useState("0");
   const [participantVisible, setParticipantVisible] = useState(false);
   const [participantPublicName, setParticipantPublicName] = useState("");
   const [dealPublicStory, setDealPublicStory] = useState("");
@@ -79,6 +98,10 @@ export function AdminOfferDetailPage() {
       setModerationComment(loadedOffer.moderation_comment || "");
       setPublicComment(loadedOffer.public_comment || "");
       setIsPublic(loadedOffer.is_public);
+      setVisibilityStatus(
+        (loadedOffer.visibility_status || "normal") as "normal" | "low_priority" | "hidden",
+      );
+      setSortPriority(loadedOffer.sort_priority.toString());
       setParticipantVisible(loadedOffer.participant_visible);
       setParticipantPublicName(loadedOffer.participant_public_name || "");
       setDealPublicStory(loadedOffer.public_comment || "");
@@ -100,20 +123,25 @@ export function AdminOfferDetailPage() {
       return;
     }
 
+    const confirmed = window.confirm(
+      "Выбранная заявка станет новым предметом цепочки и появится в истории обменов. Продолжить?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setError(null);
     setNotice(null);
 
     try {
-      const deal = await createDealFromOffer(offerId, {
-        given_item_id: currentItem.id,
-        owner_type: "personal",
-        owner_name: dealOwnerName || offer.participant_public_name || null,
+      await selectOfferAsNext(offerId, {
         public_story: dealPublicStory || offer.public_comment || null,
         video_url: dealVideoUrl || null,
         photo_url: photos[0]?.photo_url || null,
         is_public: dealIsPublic,
       });
-      setNotice(`Заявка принята в цепочку. Создан шаг №${deal.step_number}.`);
+      setNotice("Заявка принята в цепочку. Новый предмет добавлен в историю обменов.");
       await loadOffer();
     } catch (saveError) {
       setError(
@@ -141,13 +169,7 @@ export function AdminOfferDetailPage() {
     try {
       const updated = await updateOfferModeration(offerId, {
         moderated_value: numberOrNull(moderatedValue),
-        public_value: numberOrNull(publicValue),
-        valuation_source: valuationSource || null,
-        moderation_comment: moderationComment || null,
-        public_comment: publicComment || null,
-        is_public: isPublic,
-        participant_visible: participantVisible,
-        participant_public_name: participantPublicName || null,
+        visibility_status: visibilityStatus,
       });
       setOffer(updated);
       setStatusValue(updated.status);
@@ -218,32 +240,38 @@ export function AdminOfferDetailPage() {
             <p>{offer.description}</p>
             <dl className="field-list">
               <div>
-                <dt>declared_value</dt>
+                <dt>Цена пользователя</dt>
                 <dd>{offer.declared_value ?? "-"}</dd>
               </div>
               <div>
-                <dt>exchange_preference</dt>
-                <dd>{offer.exchange_preference}</dd>
+                <dt>Предпочтения по обмену</dt>
+                <dd>
+                  {EXCHANGE_PREFERENCE_LABELS[offer.exchange_preference] || offer.exchange_preference}
+                </dd>
               </div>
               <div>
-                <dt>status</dt>
-                <dd>{offer.status_label || offer.status}</dd>
+                <dt>Статус</dt>
+                <dd>{offer.status_label || STATUS_LABELS[offer.status] || offer.status}</dd>
               </div>
               <div>
-                <dt>is_public</dt>
-                <dd>{offer.is_public ? "true" : "false"}</dd>
+                <dt>Видимость</dt>
+                <dd>{VISIBILITY_LABELS[offer.visibility_status] || offer.visibility_status}</dd>
               </div>
               <div>
-                <dt>participant</dt>
+                <dt>Имя пользователя</dt>
                 <dd>{offer.participant_public_name || "-"}</dd>
               </div>
               <div>
-                <dt>consent</dt>
-                <dd>{offer.consent_accepted ? "accepted" : "not accepted"}</dd>
+                <dt>Согласие</dt>
+                <dd>{offer.consent_accepted ? "Принято" : "Не принято"}</dd>
               </div>
               <div>
-                <dt>contract_status</dt>
-                <dd>{offer.contract_status || "-"}</dd>
+                <dt>Статус договора</dt>
+                <dd>
+                  {offer.contract_status
+                    ? CONTRACT_STATUS_LABELS[offer.contract_status] || offer.contract_status
+                    : "-"}
+                </dd>
               </div>
             </dl>
           </section>
@@ -260,14 +288,15 @@ export function AdminOfferDetailPage() {
                 </p>
                 <form className="offer-form" onSubmit={submitAcceptIntoChain}>
                   <label>
-                    owner_name
+                    Публикуемое имя пользователя
                     <input
                       value={dealOwnerName}
                       onChange={(event) => setDealOwnerName(event.target.value)}
+                      disabled
                     />
                   </label>
                   <label>
-                    public_story
+                    Публикуемая история предмета
                     <textarea
                       value={dealPublicStory}
                       onChange={(event) => setDealPublicStory(event.target.value)}
@@ -287,7 +316,7 @@ export function AdminOfferDetailPage() {
                       onChange={(event) => setDealIsPublic(event.target.checked)}
                       type="checkbox"
                     />
-                    Опубликовать шаг в истории обменов
+                    Опубликовать переход в истории обменов
                   </label>
                   <button type="submit">Принять заявку в цепочку</button>
                 </form>
@@ -317,7 +346,7 @@ export function AdminOfferDetailPage() {
           <form className="admin-panel offer-form" onSubmit={submitModeration}>
             <h2>Модерация</h2>
             <label>
-              moderated_value
+              Цена админа
               <input
                 inputMode="numeric"
                 value={moderatedValue}
@@ -325,59 +354,17 @@ export function AdminOfferDetailPage() {
               />
             </label>
             <label>
-              public_value
-              <input
-                inputMode="numeric"
-                value={publicValue}
-                onChange={(event) => setPublicValue(event.target.value)}
-              />
-            </label>
-            <label>
-              valuation_source
-              <textarea
-                value={valuationSource}
-                onChange={(event) => setValuationSource(event.target.value)}
-                rows={3}
-              />
-            </label>
-            <label>
-              moderation_comment
-              <textarea
-                value={moderationComment}
-                onChange={(event) => setModerationComment(event.target.value)}
-                rows={3}
-              />
-            </label>
-            <label>
-              public_comment
-              <textarea
-                value={publicComment}
-                onChange={(event) => setPublicComment(event.target.value)}
-                rows={3}
-              />
-            </label>
-            <label>
-              participant_public_name
-              <input
-                value={participantPublicName}
-                onChange={(event) => setParticipantPublicName(event.target.value)}
-              />
-            </label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={participantVisible}
-                onChange={(event) => setParticipantVisible(event.target.checked)}
-              />
-              participant_visible
-            </label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(event) => setIsPublic(event.target.checked)}
-              />
-              is_public
+              Видимость
+              <select
+                value={visibilityStatus}
+                onChange={(event) =>
+                  setVisibilityStatus(event.target.value as "normal" | "low_priority" | "hidden")
+                }
+              >
+                <option value="normal">Обычная</option>
+                <option value="low_priority">Низкий приоритет</option>
+                <option value="hidden">Скрытая</option>
+              </select>
             </label>
             <button type="submit">Сохранить модерацию</button>
           </form>
@@ -385,14 +372,19 @@ export function AdminOfferDetailPage() {
           <form className="admin-panel offer-form" onSubmit={submitStatus}>
             <h2>Статус</h2>
             <label>
-              status
+              Статус
               <select
                 value={statusValue}
                 onChange={(event) => setStatusValue(event.target.value)}
               >
+                {statusValue === "selected" && (
+                  <option value="selected" disabled>
+                    Выбрана в цепочку
+                  </option>
+                )}
                 {OFFER_STATUSES.map((status) => (
                   <option value={status} key={status}>
-                    {status}
+                    {STATUS_LABELS[status]}
                   </option>
                 ))}
               </select>

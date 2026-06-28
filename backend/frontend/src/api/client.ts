@@ -89,6 +89,8 @@ export type AdminOffer = {
   exchange_preference: string;
   status: string;
   status_label: string;
+  visibility_status: string;
+  sort_priority: number;
   is_public: boolean;
   public_comment: string | null;
   participant_visible: boolean;
@@ -115,6 +117,7 @@ export type AdminOfferPhoto = {
 export type AdminItem = {
   id: string;
   user_id: string | null;
+  source_offer_id: string | null;
   title: string;
   description: string | null;
   item_type: string;
@@ -125,6 +128,7 @@ export type AdminItem = {
   owner_name: string | null;
   is_current: boolean;
   is_public: boolean;
+  sequence_number: number | null;
   public_story: string | null;
   photo_url: string | null;
   created_at: string;
@@ -143,6 +147,11 @@ export type AdminItemCreatePayload = {
   is_public: boolean;
   public_story?: string | null;
   photo_url?: string | null;
+  sequence_number?: number | null;
+};
+
+export type AdminItemUpdatePayload = Partial<AdminItemCreatePayload> & {
+  status?: string | null;
 };
 
 export type UserItem = {
@@ -258,21 +267,13 @@ export type AdminDealResponse = {
   updated_at: string;
 };
 
-export type CreateDealFromOfferPayload = {
-  given_item_id: string;
-  owner_type: "personal" | "tom_sawyer_fest" | "partner_org" | "other";
-  owner_name?: string | null;
-  public_story?: string | null;
-  video_url?: string | null;
-  photo_url?: string | null;
-  is_public: boolean;
-};
-
 export type ModerationPayload = {
   moderated_value?: number | null;
   public_value?: number | null;
   valuation_source?: string | null;
   moderation_comment?: string | null;
+  visibility_status?: "normal" | "low_priority" | "hidden";
+  sort_priority?: number | null;
   is_public?: boolean;
   public_comment?: string | null;
   participant_visible?: boolean;
@@ -319,6 +320,85 @@ function adminHeaders() {
   };
 }
 
+const VALIDATION_FIELD_LABELS: Record<string, string> = {
+  city: "Город",
+  consent_accepted: "Согласие",
+  declared_value: "Оценка",
+  description: "Описание",
+  exchange_preference: "Предпочтение",
+  external_user_id: "Пользователь",
+  first_name: "Имя",
+  last_name: "Фамилия",
+  messenger_type: "Источник заявки",
+  offer_type: "Тип",
+  participant_public_name: "Имя участника",
+  participant_visible: "Публичность участника",
+  photo_urls: "Фото",
+  title: "Название",
+  username: "Username",
+};
+
+function formatValidationMessage(fieldName: string, message: string): string {
+  if (fieldName === "declared_value") {
+    if (message.includes("Unable to parse input string as an integer")) {
+      return "Оценка слишком большая, поэтому сохраните её как 400000 ₽.";
+    }
+
+    if (message.includes("Input should be greater than or equal to 0")) {
+      return "Оценка не может быть отрицательной.";
+    }
+
+    if (message.includes("Input should be a valid integer")) {
+      return "Оценка должна быть целым числом.";
+    }
+  }
+
+  if (message.includes("String should have at least")) {
+    return `${VALIDATION_FIELD_LABELS[fieldName] || fieldName}: слишком короткое значение.`;
+  }
+
+  if (message.includes("String should have at most")) {
+    return `${VALIDATION_FIELD_LABELS[fieldName] || fieldName}: слишком длинное значение.`;
+  }
+
+  if (message.includes("List should have at most 3 items")) {
+    return "Можно загрузить не больше 3 фото.";
+  }
+
+  return `${VALIDATION_FIELD_LABELS[fieldName] || fieldName}: ${message}`;
+}
+
+function formatValidationDetail(detail: unknown): string | null {
+  if (!Array.isArray(detail)) {
+    return null;
+  }
+
+  const messages = detail
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as { loc?: unknown; msg?: unknown };
+      const location = Array.isArray(record.loc)
+        ? record.loc.filter((part) => part !== "body").join(".")
+        : "";
+      const fieldName = Array.isArray(record.loc)
+        ? String(record.loc[record.loc.length - 1] || "")
+        : "";
+      const message = typeof record.msg === "string" ? record.msg : null;
+
+      if (!message) {
+        return null;
+      }
+
+      return formatValidationMessage(fieldName || location, message);
+    })
+    .filter(Boolean);
+
+  return messages.length > 0 ? messages.join("; ") : null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
 
@@ -335,8 +415,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         message = "Недостаточно прав для этого действия";
       } else if (typeof payload.detail === "string") {
         message = payload.detail;
-      } else if (typeof payload.message === "string") {
-        message = payload.message;
+      } else {
+        const validationMessage = formatValidationDetail(payload.detail);
+        if (validationMessage) {
+          message = validationMessage;
+        } else if (typeof payload.message === "string") {
+          message = payload.message;
+        }
       }
     } catch {
       const text = await responseCopy.text();
@@ -395,13 +480,51 @@ export function loginAdmin(login: string, password: string): Promise<LoginRespon
 }
 
 export function getMe(): Promise<AuthUser> {
+  const token = getAdminToken();
+
+  if (!token) {
+    return Promise.reject(new Error("Нужно войти в админку"));
+  }
+
   return request<AuthUser>("/api/auth/me", {
-    headers: adminHeaders(),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
 
 export function getAdminOffers(): Promise<AdminOffer[]> {
   return request<AdminOffer[]>("/api/admin/offers", {
+    headers: adminHeaders(),
+  });
+}
+
+export function getAdminOffersFiltered(params?: {
+  offer_status?: string;
+  visibility_status?: string | string[];
+  sort?: string;
+}): Promise<AdminOffer[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.offer_status && params.offer_status !== "all") {
+    searchParams.set("offer_status", params.offer_status);
+  }
+
+  if (Array.isArray(params?.visibility_status)) {
+    params.visibility_status
+      .filter((visibility) => visibility !== "all")
+      .forEach((visibility) => searchParams.append("visibility_status", visibility));
+  } else if (params?.visibility_status && params.visibility_status !== "all") {
+    searchParams.set("visibility_status", params.visibility_status);
+  }
+
+  if (params?.sort) {
+    searchParams.set("sort", params.sort);
+  }
+
+  const query = searchParams.toString();
+
+  return request<AdminOffer[]>(`/api/admin/offers${query ? `?${query}` : ""}`, {
     headers: adminHeaders(),
   });
 }
@@ -442,6 +565,20 @@ export function getAdminItems(params?: {
 export function createAdminItem(payload: AdminItemCreatePayload): Promise<AdminItem> {
   return request<AdminItem>("/api/admin/items", {
     method: "POST",
+    headers: {
+      ...adminHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminItem(
+  itemId: string,
+  payload: AdminItemUpdatePayload,
+): Promise<AdminItem> {
+  return request<AdminItem>(`/api/admin/items/${itemId}`, {
+    method: "PATCH",
     headers: {
       ...adminHeaders(),
       "Content-Type": "application/json",
@@ -526,11 +663,16 @@ export function updateDealStatus(dealId: string, status: string): Promise<AdminD
   });
 }
 
-export function createDealFromOffer(
+export function selectOfferAsNext(
   offerId: string,
-  payload: CreateDealFromOfferPayload,
+  payload: {
+    public_story?: string | null;
+    video_url?: string | null;
+    photo_url?: string | null;
+    is_public: boolean;
+  },
 ): Promise<AdminDealResponse> {
-  return request<AdminDealResponse>(`/api/admin/deals/from-offer/${offerId}`, {
+  return request<AdminDealResponse>(`/api/admin/offers/${offerId}/select-next`, {
     method: "POST",
     headers: {
       ...adminHeaders(),

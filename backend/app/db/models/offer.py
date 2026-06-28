@@ -20,19 +20,32 @@ class OfferType(str, Enum):
 
 class OfferStatus(str, Enum):
     NEW = "new"
+    REVIEWED = "reviewed"
+    SELECTED = "selected"
+    HIDDEN = "hidden"
+    REJECTED = "rejected"
+    # Legacy marketplace statuses. Keep them readable while data is migrated.
     MODERATION = "moderation"
     APPROVED = "approved"
     PUBLISHED = "published"
-    REJECTED = "rejected"
     ARCHIVED = "archived"
+
+
+class OfferVisibilityStatus(str, Enum):
+    NORMAL = "normal"
+    LOW_PRIORITY = "low_priority"
+    HIDDEN = "hidden"
 
 
 OFFER_STATUS_LABELS = {
     OfferStatus.NEW.value: "Новая заявка",
+    OfferStatus.REVIEWED.value: "Просмотрена",
+    OfferStatus.SELECTED.value: "Выбрана в цепочку",
+    OfferStatus.HIDDEN.value: "Скрыта",
+    OfferStatus.REJECTED.value: "Отклонена",
     OfferStatus.MODERATION.value: "На модерации",
     OfferStatus.APPROVED.value: "Одобрено",
     OfferStatus.PUBLISHED.value: "Опубликовано",
-    OfferStatus.REJECTED.value: "Отклонено",
     OfferStatus.ARCHIVED.value: "Снято с публикации",
 }
 
@@ -92,7 +105,14 @@ class Offer(Base):
         nullable=False,
         default=OfferStatus.NEW.value,
     )
+    visibility_status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default=OfferVisibilityStatus.NORMAL.value,
+    )
+    sort_priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Legacy public offer fields. The sequential chain uses deals/items instead.
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     public_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 

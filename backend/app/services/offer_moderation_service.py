@@ -1,10 +1,13 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.messenger_account import MessengerType
-from app.db.models.offer import Offer, OfferStatus
+from app.db.models.offer import Offer, OfferStatus, OfferVisibilityStatus
+from app.db.models.deal import Deal, DealStatus
+from app.db.models.item import Item, ItemStatus, OwnerType
 from app.schemas.offer import AdminOfferModerationUpdateRequest
 from app.services.telegram_notification_service import TelegramNotificationService
 
@@ -18,6 +21,8 @@ class OfferModerationService:
         "public_value",
         "valuation_source",
         "moderation_comment",
+        "visibility_status",
+        "sort_priority",
         "is_public",
         "public_comment",
         "participant_visible",
@@ -51,16 +56,20 @@ class OfferModerationService:
             field_name: field_value
             for field_name, field_value in update_data.items()
             if field_name in self.ALLOWED_MODERATION_FIELDS
+            and field_value is not None
         }
 
         for field_name, field_value in allowed_update_data.items():
             setattr(offer, field_name, field_value)
 
+        if "visibility_status" in allowed_update_data:
+            offer.visibility_status = allowed_update_data["visibility_status"].value
+
         if "is_public" in allowed_update_data:
             if offer.is_public:
                 offer.status = OfferStatus.PUBLISHED.value
             elif offer.status == OfferStatus.PUBLISHED.value:
-                offer.status = OfferStatus.ARCHIVED.value
+                offer.status = OfferStatus.HIDDEN.value
 
         self.db.commit()
         self.db.refresh(offer)
@@ -72,6 +81,87 @@ class OfferModerationService:
         )
 
         return offer
+
+    def select_next_offer(
+        self,
+        offer_id: UUID,
+        *,
+        public_story: str | None = None,
+        video_url: str | None = None,
+        photo_url: str | None = None,
+        is_public: bool = True,
+    ) -> Deal:
+        offer = self.db.get(Offer, offer_id)
+
+        if offer is None:
+            raise ValueError("Заявка не найдена")
+
+        if offer.status == OfferStatus.SELECTED.value:
+            raise ValueError("Заявка уже выбрана в цепочку")
+
+        if offer.status == OfferStatus.REJECTED.value:
+            raise ValueError("Отклонённую заявку нельзя выбрать в цепочку")
+
+        existing_deal = self.db.scalar(select(Deal).where(Deal.offer_id == offer_id))
+
+        if existing_deal is not None:
+            raise ValueError("По этой заявке уже создан шаг цепочки")
+
+        current_item = self.db.scalar(
+            select(Item).where(Item.is_current.is_(True)).with_for_update()
+        )
+
+        if current_item is None:
+            raise ValueError("Сначала создайте текущий предмет цепочки")
+
+        next_sequence_number = self._get_next_sequence_number()
+
+        resulting_item = Item(
+            source_offer_id=offer.id,
+            user_id=offer.user_id,
+            title=offer.title,
+            description=offer.description,
+            item_type=offer.offer_type,
+            internal_value=offer.moderated_value or offer.declared_value,
+            valuation_source=offer.valuation_source,
+            owner_type=OwnerType.PERSONAL.value,
+            owner_name=offer.participant_public_name,
+            status=ItemStatus.CURRENT.value,
+            sequence_number=next_sequence_number,
+            is_current=True,
+            is_public=True,
+            public_story=public_story or offer.public_comment,
+            photo_url=photo_url,
+        )
+
+        current_item.is_current = False
+        current_item.status = ItemStatus.PAST.value
+
+        self.db.add(resulting_item)
+        self.db.flush()
+
+        deal = Deal(
+            offer_id=offer.id,
+            step_number=next_sequence_number,
+            given_item_id=current_item.id,
+            received_item_id=resulting_item.id,
+            status=DealStatus.COMPLETED.value,
+            participant_user_id=offer.user_id,
+            participant_public_name=offer.participant_public_name,
+            participant_visible=offer.participant_visible,
+            public_story=public_story or offer.public_comment,
+            video_url=video_url,
+            is_public=is_public,
+        )
+
+        offer.status = OfferStatus.SELECTED.value
+        offer.is_public = False
+
+        self.db.add(deal)
+        self.db.commit()
+        self.db.refresh(deal)
+
+        return deal
 
     def update_status(
         self,
@@ -87,8 +177,15 @@ class OfferModerationService:
         previous_is_public = offer.is_public
         previous_public_comment = offer.public_comment
 
+        if status == OfferStatus.SELECTED:
+            existing_deal = self.db.scalar(select(Deal).where(Deal.offer_id == offer_id))
+            if existing_deal is None:
+                raise ValueError("Use select-next endpoint to select an offer into the chain")
+
         offer.status = status.value
         offer.is_public = status == OfferStatus.PUBLISHED
+        if status == OfferStatus.HIDDEN:
+            offer.visibility_status = OfferVisibilityStatus.HIDDEN.value
 
         self.db.commit()
         self.db.refresh(offer)
@@ -100,6 +197,15 @@ class OfferModerationService:
         )
 
         return offer
+
+    def _get_next_sequence_number(self) -> int:
+        max_sequence_number = self.db.scalar(select(func.max(Item.sequence_number)))
+
+        if max_sequence_number is not None:
+            return max_sequence_number + 1
+
+        max_step_number = self.db.scalar(select(func.max(Deal.step_number))) or 0
+        return max_step_number + 1
 
     def _notify_user_if_needed(
         self,

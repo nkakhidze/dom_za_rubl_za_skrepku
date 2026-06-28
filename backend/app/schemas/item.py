@@ -23,6 +23,28 @@ class AdminItemCreateRequest(BaseModel):
 
     public_story: str | None = None
     photo_url: str | None = Field(default=None, max_length=1000)
+    sequence_number: int | None = Field(default=None, ge=0)
+
+
+class AdminItemUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    description: str | None = None
+
+    item_type: ItemType | None = None
+    status: str | None = Field(default=None, max_length=50)
+
+    internal_value: int | None = Field(default=None, ge=0)
+    valuation_source: str | None = None
+
+    owner_type: OwnerType | None = None
+    owner_name: str | None = Field(default=None, max_length=255)
+
+    is_current: bool | None = None
+    is_public: bool | None = None
+
+    public_story: str | None = None
+    photo_url: str | None = Field(default=None, max_length=1000)
+    sequence_number: int | None = Field(default=None, ge=0)
 
 
 class UserItemCreateRequest(BaseModel):
@@ -34,6 +56,7 @@ class UserItemCreateRequest(BaseModel):
 class AdminItemResponse(BaseModel):
     id: UUID
     user_id: UUID | None
+    source_offer_id: UUID | None
 
     title: str
     description: str | None
@@ -48,6 +71,7 @@ class AdminItemResponse(BaseModel):
 
     is_current: bool
     is_public: bool
+    sequence_number: int | None
 
     public_story: str | None
     photo_url: str | None

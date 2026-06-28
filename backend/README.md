@@ -1,6 +1,6 @@
 # Дом за рубль за скрепку
 
-Backend, frontend и Telegram-бот для MVP-проекта обменной цепочки: пользователь подаёт оффер, админ модерирует и публикует его, другой пользователь предлагает свой предмет в обмен, админ обрабатывает сделку.
+Backend, frontend и Telegram-бот для MVP-проекта обменной цепочки: пользователь подаёт заявку, админ оценивает предложения и выбирает одно следующим предметом цепочки, а публичная история строится из последовательности предметов и переходов между ними.
 
 ## Стек
 
@@ -22,11 +22,12 @@ Backend находится в корне этого workspace:
 
 Frontend находится в `frontend`:
 
-- публичный каталог офферов;
+- публичная история обменов;
 - форма подачи оффера;
-- создание item и отклик на offer;
-- “мои сделки”;
-- админка офферов;
+- создание item и отклик на offer в legacy-сценарии;
+- “мои сделки” в legacy-сценарии;
+- админка заявок;
+- админка предметов цепочки;
 - админка сделок.
 
 Telegram-бот находится в `bot`:
@@ -43,10 +44,10 @@ Telegram-бот находится в `bot`:
 
 - `users` — пользователь сервиса.
 - `messenger_accounts` — привязка пользователя к Telegram или другому мессенджеру.
-- `offers` — офферы/заявки пользователя.
+- `offers` — входящие заявки пользователей; это ещё не предмет цепочки.
 - `offer_photos` — фотографии оффера.
-- `items` — предметы пользователя, которые можно предложить в обмен.
-- `deals` — отклики/сделки между published offer и item.
+- `items` — реальные предметы цепочки: стартовый, текущий, прошлые и будущие.
+- `deals` — переходы между предметами цепочки: что отдали и что получили.
 - `alembic_version` — служебная таблица миграций.
 
 Связи:
@@ -55,8 +56,8 @@ Telegram-бот находится в `bot`:
 - `users 1:N items`
 - `users 1:N messenger_accounts`
 - `offers 1:N offer_photos`
-- `offers 1:N deals`
-- `items 1:N deals`
+- `offers 0:1 deals` в основной цепочке через выбранную заявку.
+- `items 1:N deals` через `given_item_id` и `received_item_id`.
 
 Подробнее: [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
 
@@ -340,15 +341,16 @@ Frontend-админка:
 
 ## Основной MVP-сценарий
 
-1. Пользователь загружает фото: `POST /api/files/images`.
-2. Пользователь создаёт оффер: `POST /api/offers`.
-3. Админ видит оффер: `GET /api/admin/offers`.
-4. Админ модерирует и публикует: `PATCH /api/admin/offers/{offer_id}/moderation`.
-5. Оффер появляется в каталоге: `GET /api/offers`.
-6. Другой пользователь создаёт item: `POST /api/items`.
-7. Другой пользователь отправляет отклик: `POST /api/deals`.
-8. Админ видит сделку: `GET /api/admin/deals`.
-9. Админ меняет статус сделки: `PATCH /api/admin/deals/{deal_id}/status`.
+1. Админ создаёт стартовый предмет цепочки: `POST /api/admin/items`.
+2. Пользователь загружает фото: `POST /api/files/images`.
+3. Пользователь создаёт заявку: `POST /api/offers`.
+4. Админ видит заявку: `GET /api/admin/offers`.
+5. Админ оценивает заявку, задаёт `moderated_value`, `visibility_status` и `sort_priority`: `PATCH /api/admin/offers/{offer_id}/moderation`.
+6. Админ выбирает заявку следующим предметом цепочки: `POST /api/admin/offers/{offer_id}/select-next`.
+7. Backend создаёт новый `item`, помечает предыдущий текущий предмет как прошлый и создаёт `deal` между ними.
+8. Публичная история показывает цепочку предметов: `GET /api/public/exchange-chain`.
+
+Legacy-сценарий откликов `POST /api/items`, `POST /api/deals`, `GET /api/users/{user_id}/deals` пока сохранён для совместимости, но не является основной механикой публичной истории.
 
 Подробный сценарий: [docs/MVP_FLOW.md](docs/MVP_FLOW.md).
 
@@ -365,6 +367,8 @@ Public/user:
 - `POST /api/deals`
 - `GET /api/users/{user_id}/offers`
 - `GET /api/users/{user_id}/deals`
+- `GET /api/public/current-item`
+- `GET /api/public/exchange-chain`
 - `POST /api/users/telegram`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
@@ -376,6 +380,7 @@ Admin:
 - `GET /api/admin/offers/{offer_id}/photos`
 - `PATCH /api/admin/offers/{offer_id}/moderation`
 - `PATCH /api/admin/offers/{offer_id}/status`
+- `POST /api/admin/offers/{offer_id}/select-next`
 - `GET /api/admin/deals`
 - `GET /api/admin/deals/{deal_id}`
 - `PATCH /api/admin/deals/{deal_id}/status`

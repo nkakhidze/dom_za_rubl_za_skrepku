@@ -56,9 +56,9 @@ Admin pages use:
 - `GET /api/admin/offers/{offer_id}/photos`
 - `PATCH /api/admin/offers/{offer_id}/moderation`
 - `PATCH /api/admin/offers/{offer_id}/status`
+- `POST /api/admin/offers/{offer_id}/select-next`
 - `GET /api/admin/items`
 - `POST /api/admin/items`
-- `POST /api/admin/deals/from-offer/{offer_id}`
 - `GET /api/admin/deals`
 - `PATCH /api/admin/deals/{deal_id}/status`
 
@@ -66,6 +66,6 @@ Admin flow:
 
 1. `/admin/items` creates the first current item in the exchange chain.
 2. `/admin/offers` shows incoming user requests.
-3. `/admin/offers/:id` can accept a request into the chain.
-4. Accepting creates a completed deal and the received item becomes the new current item.
+3. `/admin/offers/:id` can select a request as the next chain item.
+4. Selection creates a completed deal and the received item becomes the new current item.
 5. Public exchange history reads `/api/public/exchange-chain`.

@@ -14,6 +14,7 @@ from app.schemas.deal import (
     DealCreateRequest,
 )
 from app.services.telegram_notification_service import TelegramNotificationService
+from app.services.offer_moderation_service import OfferModerationService
 
 
 
@@ -85,69 +86,13 @@ class DealService:
         offer_id: UUID,
         request: AdminDealCreateFromOfferRequest,
     ) -> Deal:
-        offer = self.db.get(Offer, offer_id)
-
-        if offer is None:
-            raise ValueError("Заявка не найдена")
-
-        if offer.status in {
-            OfferStatus.REJECTED.value,
-            OfferStatus.ARCHIVED.value,
-        }:
-            raise ValueError("По заявке с таким статусом нельзя создать обмен")
-
-        existing_deal = self.db.scalar(
-            select(Deal).where(Deal.offer_id == offer_id)
-        )
-
-        if existing_deal is not None:
-            raise ValueError("По этой заявке уже создан обмен")
-
-        given_item = self._get_current_given_item(request.given_item_id)
-
-        next_step_number = self._get_next_step_number()
-
-        received_item = Item(
-            title=offer.title,
-            description=offer.description,
-            item_type=offer.offer_type,
-            internal_value=offer.moderated_value or offer.declared_value,
-            valuation_source=offer.valuation_source,
-            owner_type=request.owner_type.value,
-            owner_name=request.owner_name,
-            is_current=True,
-            is_public=True,
-            public_story=request.public_story or offer.public_comment,
-            photo_url=request.photo_url,
-        )
-
-        given_item.is_current = False
-
-        self.db.add(received_item)
-        self.db.flush()
-
-        deal = Deal(
-            offer_id=offer.id,
-            status=DealStatus.COMPLETED.value,
-            step_number=next_step_number,
-            given_item_id=given_item.id,
-            received_item_id=received_item.id,
-            participant_user_id=offer.user_id,
-            participant_public_name=offer.participant_public_name,
-            participant_visible=offer.participant_visible,
-            public_story=request.public_story or offer.public_comment,
+        return OfferModerationService(self.db, self.notification_service).select_next_offer(
+            offer_id,
+            public_story=request.public_story,
             video_url=request.video_url,
+            photo_url=request.photo_url,
             is_public=request.is_public,
         )
-
-        offer.status = OfferStatus.ARCHIVED.value
-        offer.is_public = False
-
-        self.db.add(deal)
-        self.db.commit()
-        self.db.refresh(deal)
-
-        return deal
 
     def create_response_deal(self, request: DealCreateRequest) -> Deal:
         offer = self.db.get(Offer, request.offer_id)

@@ -91,17 +91,20 @@ class Deal(Base):
 
 
 class DealStatus(str, Enum):
+    PLANNED = "planned"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    # Legacy marketplace response statuses.
     NEW = "new"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
 
 
 DEAL_STATUS_LABELS = {
+    DealStatus.PLANNED.value: "Запланирована",
+    DealStatus.COMPLETED.value: "Завершена",
+    DealStatus.CANCELLED.value: "Отменена",
     DealStatus.NEW.value: "Новая заявка",
     DealStatus.ACCEPTED.value: "Принята",
     DealStatus.REJECTED.value: "Отклонена",
-    DealStatus.COMPLETED.value: "Завершена",
-    DealStatus.CANCELLED.value: "Отменена",
 }
