@@ -52,9 +52,10 @@ class OfferModerationTestCase(unittest.TestCase):
         participant_visible: bool = True,
         participant_public_name: str | None = "Public Participant",
         external_user_id: str | None = None,
+        messenger_type: str = "telegram",
     ) -> Offer:
         request = OfferCreateRequest(
-            messenger_type="telegram",
+            messenger_type=messenger_type,
             external_user_id=external_user_id or f"user-{title}",
             username="participant",
             first_name="Test",
@@ -74,6 +75,143 @@ class OfferModerationTestCase(unittest.TestCase):
         offer = OfferService(self.db).create_offer(request)
         self.assertIsInstance(offer, Offer)
         return offer
+
+    def test_publication_sends_telegram_notification(self) -> None:
+        class FakeNotificationService:
+            def __init__(self) -> None:
+                self.messages: list[tuple[str, str]] = []
+
+            def send_telegram_message(self, telegram_id: str, text: str) -> bool:
+                self.messages.append((telegram_id, text))
+                return True
+
+        notifications = FakeNotificationService()
+        offer = self.create_offer(title="Notification offer", external_user_id="tg-1")
+
+        OfferModerationService(self.db, notifications).moderate_offer(
+            offer.id,
+            AdminOfferModerationUpdateRequest(
+                is_public=True,
+                public_comment="Можно показывать пользователю.",
+                moderation_comment="Внутренняя заметка.",
+            ),
+        )
+
+        self.assertEqual(len(notifications.messages), 1)
+        telegram_id, text = notifications.messages[0]
+        self.assertEqual(telegram_id, "tg-1")
+        self.assertIn("Notification offer", text)
+        self.assertIn("опубликован", text)
+        self.assertIn("Можно показывать пользователю.", text)
+        self.assertNotIn("Внутренняя заметка.", text)
+
+    def test_rejection_sends_telegram_notification(self) -> None:
+        class FakeNotificationService:
+            def __init__(self) -> None:
+                self.messages: list[tuple[str, str]] = []
+
+            def send_telegram_message(self, telegram_id: str, text: str) -> bool:
+                self.messages.append((telegram_id, text))
+                return True
+
+        notifications = FakeNotificationService()
+        offer = self.create_offer(title="Rejected offer", external_user_id="tg-2")
+
+        OfferModerationService(self.db, notifications).update_status(
+            offer.id,
+            AdminOfferStatusUpdateRequest(status="rejected").status,
+        )
+
+        self.assertEqual(len(notifications.messages), 1)
+        telegram_id, text = notifications.messages[0]
+        self.assertEqual(telegram_id, "tg-2")
+        self.assertIn("Rejected offer", text)
+        self.assertIn("отклонён", text)
+
+    def test_offer_without_telegram_account_does_not_send_notification(self) -> None:
+        class FakeNotificationService:
+            def __init__(self) -> None:
+                self.messages: list[tuple[str, str]] = []
+
+            def send_telegram_message(self, telegram_id: str, text: str) -> bool:
+                self.messages.append((telegram_id, text))
+                return True
+
+        notifications = FakeNotificationService()
+        offer = self.create_offer(
+            title="Web offer",
+            external_user_id="web-user",
+            messenger_type="web",
+        )
+
+        OfferModerationService(self.db, notifications).update_status(
+            offer.id,
+            AdminOfferStatusUpdateRequest(status="published").status,
+        )
+
+        self.assertEqual(notifications.messages, [])
+
+    def test_unchanged_status_does_not_send_notification(self) -> None:
+        class FakeNotificationService:
+            def __init__(self) -> None:
+                self.messages: list[tuple[str, str]] = []
+
+            def send_telegram_message(self, telegram_id: str, text: str) -> bool:
+                self.messages.append((telegram_id, text))
+                return True
+
+        notifications = FakeNotificationService()
+        offer = self.create_offer(title="Unchanged offer", external_user_id="tg-3")
+
+        OfferModerationService(self.db, notifications).update_status(
+            offer.id,
+            AdminOfferStatusUpdateRequest(status="new").status,
+        )
+
+        self.assertEqual(notifications.messages, [])
+
+    def test_telegram_notification_error_does_not_break_status_update(self) -> None:
+        class FailingNotificationService:
+            def send_telegram_message(self, telegram_id: str, text: str) -> bool:
+                raise RuntimeError("Telegram is unavailable")
+
+        offer = self.create_offer(title="Failing notification", external_user_id="tg-4")
+
+        updated_offer = OfferModerationService(
+            self.db,
+            FailingNotificationService(),
+        ).update_status(
+            offer.id,
+            AdminOfferStatusUpdateRequest(status="published").status,
+        )
+
+        self.assertEqual(updated_offer.status, "published")
+        self.assertIs(updated_offer.is_public, True)
+
+    def test_public_comment_change_sends_user_safe_notification(self) -> None:
+        class FakeNotificationService:
+            def __init__(self) -> None:
+                self.messages: list[tuple[str, str]] = []
+
+            def send_telegram_message(self, telegram_id: str, text: str) -> bool:
+                self.messages.append((telegram_id, text))
+                return True
+
+        notifications = FakeNotificationService()
+        offer = self.create_offer(title="Commented offer", external_user_id="tg-5")
+
+        OfferModerationService(self.db, notifications).moderate_offer(
+            offer.id,
+            AdminOfferModerationUpdateRequest(
+                public_comment="Публичный комментарий.",
+                moderation_comment="Скрытая внутренняя заметка.",
+            ),
+        )
+
+        self.assertEqual(len(notifications.messages), 1)
+        _, text = notifications.messages[0]
+        self.assertIn("Публичный комментарий.", text)
+        self.assertNotIn("Скрытая внутренняя заметка.", text)
 
     def test_admin_can_moderate_publish_and_update_status(self) -> None:
         offer = self.create_offer()
@@ -96,14 +234,16 @@ class OfferModerationTestCase(unittest.TestCase):
             "Looks realistic after checking similar listings.",
         )
         self.assertIs(moderated_offer.is_public, True)
+        self.assertEqual(moderated_offer.status, "published")
 
         status_offer = update_offer_status(
             offer.id,
-            AdminOfferStatusUpdateRequest(status="shortlisted"),
+            AdminOfferStatusUpdateRequest(status="approved"),
             self.db,
         )
 
-        self.assertEqual(status_offer.status, "shortlisted")
+        self.assertEqual(status_offer.status, "approved")
+        self.assertIs(status_offer.is_public, False)
 
     def test_public_offers_only_include_allowed_fields_after_publication(self) -> None:
         offer = self.create_offer()
@@ -134,6 +274,7 @@ class OfferModerationTestCase(unittest.TestCase):
         )
         self.assertEqual(public_offer["public_value"], 2400)
         self.assertEqual(public_offer["public_comment"], "Public note.")
+        self.assertEqual(public_offer["status_label"], "Опубликовано")
 
         forbidden_fields = {
             "user_id",
@@ -180,6 +321,7 @@ class OfferModerationTestCase(unittest.TestCase):
         self.assertEqual(moderated_offer.moderated_value, 2500)
         self.assertEqual(moderated_offer.public_value, 2400)
         self.assertIs(moderated_offer.is_public, False)
+        self.assertEqual(moderated_offer.status, "new")
 
         with self.assertRaises(HTTPException) as context:
             get_public_offer(offer.id, self.db)
@@ -199,7 +341,6 @@ class OfferModerationTestCase(unittest.TestCase):
         class UnsafeModerationRequest(BaseModel):
             title: str = "Unexpected title"
             status: str = "completed"
-            is_public: bool = True
 
         offer = self.create_offer(title="Original title")
 
@@ -208,13 +349,54 @@ class OfferModerationTestCase(unittest.TestCase):
             UnsafeModerationRequest(
                 title="Unexpected title",
                 status="completed",
-                is_public=True,
             ),
         )
 
         self.assertEqual(moderated_offer.title, "Original title")
         self.assertEqual(moderated_offer.status, "new")
-        self.assertIs(moderated_offer.is_public, True)
+        self.assertIs(moderated_offer.is_public, False)
+
+    def test_rejected_offer_is_not_public(self) -> None:
+        offer = self.create_offer()
+
+        rejected_offer = update_offer_status(
+            offer.id,
+            AdminOfferStatusUpdateRequest(status="rejected"),
+            self.db,
+        )
+
+        self.assertEqual(rejected_offer.status, "rejected")
+        self.assertIs(rejected_offer.is_public, False)
+        self.assertEqual(get_public_offers(self.db), [])
+
+        with self.assertRaises(HTTPException) as context:
+            get_public_offer(offer.id, self.db)
+
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_archived_offer_is_not_public(self) -> None:
+        offer = self.create_offer()
+
+        archived_offer = update_offer_status(
+            offer.id,
+            AdminOfferStatusUpdateRequest(status="archived"),
+            self.db,
+        )
+
+        self.assertEqual(archived_offer.status, "archived")
+        self.assertIs(archived_offer.is_public, False)
+        self.assertEqual(get_public_offers(self.db), [])
+
+    def test_is_public_true_with_non_published_status_is_not_public(self) -> None:
+        offer = self.create_offer()
+        offer.is_public = True
+        offer.status = "rejected"
+        self.db.commit()
+
+        self.assertEqual(get_public_offers(self.db), [])
+
+        with self.assertRaises(HTTPException):
+            get_public_offer(offer.id, self.db)
 
     def test_public_list_hides_participant_name_when_participant_is_not_visible(
         self,
@@ -331,6 +513,7 @@ class OfferModerationTestCase(unittest.TestCase):
 
         self.assertEqual(user_offer["photo_urls"], ["http://127.0.0.1:8000/uploads/images/photo.jpg"])
         self.assertEqual(user_offer["status"], "new")
+        self.assertEqual(user_offer["status_label"], "Новая заявка")
         self.assertIs(user_offer["is_public"], False)
         self.assertNotIn("moderation_comment", user_offer)
         self.assertNotIn("valuation_source", user_offer)

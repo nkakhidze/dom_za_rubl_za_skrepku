@@ -187,6 +187,8 @@ def test_offer_full_http_e2e(client: TestClient):
     assert moderated_offer["valuation_source"] == "Checked against similar listings."
     assert moderated_offer["moderation_comment"] == "Internal moderation note."
     assert moderated_offer["is_public"] is True
+    assert moderated_offer["status"] == "published"
+    assert moderated_offer["status_label"] == "Опубликовано"
     assert moderated_offer["public_comment"] == "A practical item for the exchange chain."
     assert moderated_offer["participant_visible"] is True
     assert moderated_offer["participant_public_name"] == "Published Participant"
@@ -194,11 +196,12 @@ def test_offer_full_http_e2e(client: TestClient):
     status_response = client.patch(
         f"/api/admin/offers/{offer_id}/status",
         headers=ADMIN_HEADERS,
-        json={"status": "shortlisted"},
+        json={"status": "published"},
     )
 
     assert status_response.status_code == 200
-    assert status_response.json()["status"] == "shortlisted"
+    assert status_response.json()["status"] == "published"
+    assert status_response.json()["is_public"] is True
 
     updated_user_offers_response = client.get(f"/api/users/{user_id}/offers")
     assert updated_user_offers_response.status_code == 200
@@ -207,7 +210,8 @@ def test_offer_full_http_e2e(client: TestClient):
         for offer in updated_user_offers_response.json()
         if offer["id"] == offer_id
     )
-    assert updated_user_offer["status"] == "shortlisted"
+    assert updated_user_offer["status"] == "published"
+    assert updated_user_offer["status_label"] == "Опубликовано"
     assert updated_user_offer["is_public"] is True
     assert updated_user_offer["photo_urls"] == [photo_url]
 
@@ -295,7 +299,7 @@ def test_admin_offers_require_valid_admin_token(client: TestClient):
         "/api/admin/offers",
         headers={"Authorization": "Bearer wrong_token"},
     )
-    assert invalid_token_response.status_code == 403
+    assert invalid_token_response.status_code == 401
 
     valid_token_response = client.get("/api/admin/offers", headers=ADMIN_HEADERS)
     assert valid_token_response.status_code == 200
@@ -340,6 +344,7 @@ def test_admin_moderation_requires_valid_admin_token(client: TestClient):
     )
     assert valid_token_response.status_code == 200
     assert valid_token_response.json()["is_public"] is True
+    assert valid_token_response.json()["status"] == "published"
     assert valid_token_response.json()["public_value"] == 2000
 
 

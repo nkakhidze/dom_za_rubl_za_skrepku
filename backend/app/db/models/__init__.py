@@ -1,3 +1,4 @@
+from app.db.models.auth import AuthAccount, Role, UserRole
 from app.db.models.deal import Deal
 from app.db.models.item import Item
 from app.db.models.messenger_account import MessengerAccount
@@ -12,4 +13,7 @@ __all__ = [
     "OfferPhoto",
     "Item",
     "Deal",
+    "AuthAccount",
+    "Role",
+    "UserRole",
 ]

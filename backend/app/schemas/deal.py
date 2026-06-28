@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.db.models.deal import DealStatus
 from app.db.models.item import ItemType, OwnerType
 
 
@@ -38,6 +39,9 @@ class AdminDealResponse(BaseModel):
 
     given_item_id: UUID
     received_item_id: UUID
+    item_id: UUID | None = None
+    status: str
+    status_label: str
 
     participant_user_id: UUID | None
     participant_public_name: str | None
@@ -49,16 +53,26 @@ class AdminDealResponse(BaseModel):
 
     deal_date: datetime
     created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
 
 
-class PublicExchangeChainItem(BaseModel):
-    step_number: int
+class PublicExchangeChainDealItem(BaseModel):
+    id: UUID
+    title: str
+    description: str | None
+    photo_url: str | None
 
-    given_item_title: str
-    received_item_title: str
+
+class PublicExchangeChainItem(BaseModel):
+    id: UUID
+    step_number: int
+    status: str
+
+    given_item: PublicExchangeChainDealItem
+    received_item: PublicExchangeChainDealItem
 
     public_story: str | None
     video_url: str | None
@@ -80,3 +94,104 @@ class AdminDealCreateFromOfferRequest(BaseModel):
     photo_url: str | None = Field(default=None, max_length=1000)
 
     is_public: bool = False
+
+
+class DealCreateRequest(BaseModel):
+    offer_id: UUID
+    item_id: UUID
+
+
+class DealCreateResponse(BaseModel):
+    id: UUID
+    offer_id: UUID
+    item_id: UUID
+    status: str
+    status_label: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserDealListItem(BaseModel):
+    id: UUID
+    status: str
+    status_label: str
+    offer_id: UUID | None
+    offer_title: str | None
+    item_id: UUID
+    item_title: str
+    created_at: datetime
+
+
+class AdminDealStatusUpdateRequest(BaseModel):
+    status: DealStatus
+
+
+class AdminDealMessengerAccountResponse(BaseModel):
+    messenger_type: str
+    external_user_id: str
+    username: str | None
+    first_name: str | None
+    last_name: str | None
+
+    class Config:
+        from_attributes = True
+
+
+class AdminDealUserResponse(BaseModel):
+    id: UUID
+    display_name: str | None
+    phone: str | None
+    messenger_accounts: list[AdminDealMessengerAccountResponse]
+
+    class Config:
+        from_attributes = True
+
+
+class AdminDealListItem(BaseModel):
+    deal_id: UUID
+    deal_status: str
+    deal_status_label: str
+    deal_created_at: datetime
+    offer_id: UUID | None
+    offer_title: str | None
+    offer_status: str | None
+    offer_is_public: bool | None
+    offer_owner_user_id: UUID | None
+    offer_owner_display_name: str | None
+    item_id: UUID
+    item_title: str
+    item_status: str
+    item_owner_user_id: UUID | None
+    item_owner_display_name: str | None
+
+
+class AdminDealOfferDetail(BaseModel):
+    id: UUID
+    title: str
+    description: str
+    city: str | None
+    public_value: int | None
+    status: str
+    is_public: bool
+    photo_urls: list[str]
+
+
+class AdminDealItemDetail(BaseModel):
+    id: UUID
+    title: str
+    description: str | None
+    status: str
+
+
+class AdminDealDetail(BaseModel):
+    id: UUID
+    status: str
+    status_label: str
+    created_at: datetime
+    updated_at: datetime
+    offer: AdminDealOfferDetail | None
+    item: AdminDealItemDetail
+    offer_owner: AdminDealUserResponse | None
+    item_owner: AdminDealUserResponse | None

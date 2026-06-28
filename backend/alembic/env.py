@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.db.database import Base
-from app.db.models import Deal, Item, MessengerAccount, Offer, OfferPhoto, User
+from app.db.models import AuthAccount, Deal, Item, MessengerAccount, Offer, OfferPhoto, Role, User, UserRole
 
 config = context.config
 

@@ -98,3 +98,80 @@ class BackendClientTestCase(unittest.IsolatedAsyncioTestCase):
         async with BackendClient("http://backend", async_client) as backend:
             with self.assertRaises(BackendClientError):
                 await backend.create_offer({"title": "Broken"})
+
+    async def test_create_item_sends_payload(self):
+        requests: list[httpx.Request] = []
+        payload = {
+            "user_id": "user-id",
+            "title": "Item",
+            "description": "Description",
+        }
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(201, json={"id": "item-id", "status": "active"})
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        async with BackendClient("http://backend", async_client) as backend:
+            response = await backend.create_item(payload)
+
+        self.assertEqual(response["id"], "item-id")
+        self.assertEqual(str(requests[0].url), "http://backend/api/items")
+        self.assertEqual(
+            requests[0].read(),
+            b'{"user_id":"user-id","title":"Item","description":"Description"}',
+        )
+
+    async def test_get_user_items_uses_user_endpoint(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=[{"id": "item-id"}])
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        async with BackendClient("http://backend", async_client) as backend:
+            response = await backend.get_user_items("user-id")
+
+        self.assertEqual(response[0]["id"], "item-id")
+        self.assertEqual(str(requests[0].url), "http://backend/api/users/user-id/items")
+
+    async def test_create_deal_sends_payload(self):
+        requests: list[httpx.Request] = []
+        payload = {
+            "offer_id": "offer-id",
+            "item_id": "item-id",
+        }
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(201, json={"id": "deal-id", "status": "new"})
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        async with BackendClient("http://backend", async_client) as backend:
+            response = await backend.create_deal(payload)
+
+        self.assertEqual(response["id"], "deal-id")
+        self.assertEqual(str(requests[0].url), "http://backend/api/deals")
+        self.assertEqual(
+            requests[0].read(),
+            b'{"offer_id":"offer-id","item_id":"item-id"}',
+        )
+
+    async def test_get_user_deals_uses_user_endpoint(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=[{"id": "deal-id"}])
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        async with BackendClient("http://backend", async_client) as backend:
+            response = await backend.get_user_deals("user-id")
+
+        self.assertEqual(response[0]["id"], "deal-id")
+        self.assertEqual(str(requests[0].url), "http://backend/api/users/user-id/deals")

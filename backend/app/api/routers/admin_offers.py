@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_db, require_admin_access
+from app.api.deps import get_db, require_admin_access, require_any_role
+from app.db.models.auth import RoleCode
 from app.db.models.offer import Offer
 from app.db.models.offer_photo import OfferPhoto
 from app.schemas.offer import (
@@ -66,29 +67,32 @@ def get_offer(
     return offer
 
 
-@router.patch("/{offer_id}/status", response_model=AdminOfferDetail)
+@router.patch(
+    "/{offer_id}/status",
+    response_model=AdminOfferDetail,
+    dependencies=[Depends(require_any_role(RoleCode.MODERATOR.value, RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
 def update_offer_status(
     offer_id: UUID,
     request: AdminOfferStatusUpdateRequest,
     db: Session = Depends(get_db),
 ):
-    offer = db.get(Offer, offer_id)
+    service = OfferModerationService(db)
 
-    if offer is None:
+    try:
+        return service.update_status(offer_id, request.status)
+    except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена",
-        )
-
-    offer.status = request.status.value
-
-    db.commit()
-    db.refresh(offer)
-
-    return offer
+            detail=str(error),
+        ) from error
 
 
-@router.patch("/{offer_id}/moderation", response_model=AdminOfferDetail)
+@router.patch(
+    "/{offer_id}/moderation",
+    response_model=AdminOfferDetail,
+    dependencies=[Depends(require_any_role(RoleCode.MODERATOR.value, RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
 def update_offer_moderation(
     offer_id: UUID,
     request: AdminOfferModerationUpdateRequest,

@@ -112,6 +112,12 @@ button:disabled {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.item-chain {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .offer-card {
   background: #ffffff;
   border: 1px solid #d9ded6;
@@ -137,6 +143,43 @@ button:disabled {
 
 .offer-card-body {
   padding: 16px;
+}
+
+.exchange-thumb {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chain-node-card {
+  position: relative;
+}
+
+.chain-node-card:not(:last-child)::after {
+  color: #697267;
+  content: "→";
+  font-size: 26px;
+  font-weight: 800;
+  position: absolute;
+  right: -15px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.chain-label {
+  color: #215c4b;
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.exchange-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.exchange-meta p {
+  margin: 0;
 }
 
 .details-link {
@@ -189,6 +232,16 @@ button:disabled {
   border-left: 4px solid #c67a2f;
   margin: 24px 0;
   padding-left: 14px;
+}
+
+.response-panel {
+  margin-top: 28px;
+}
+
+.simple-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
 }
 
 .form-section {
@@ -287,6 +340,14 @@ textarea {
   padding: 12px;
 }
 
+.deal-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+h3 {
+  margin: 0 0 8px;
+}
+
 .admin-thumb {
   align-items: center;
   aspect-ratio: 1;
@@ -355,5 +416,12 @@ textarea {
 
   h1 {
     font-size: 28px;
+  }
+
+  .chain-node-card:not(:last-child)::after {
+    bottom: -24px;
+    right: 50%;
+    top: auto;
+    transform: translateX(50%) rotate(90deg);
   }
 }

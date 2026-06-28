@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,10 +15,6 @@ def utc_now() -> datetime:
 
 class Deal(Base):
     __tablename__ = "deals"
-
-    __table_args__ = (
-        UniqueConstraint("offer_id", name="uq_deals_offer_id"),
-    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -45,6 +42,12 @@ class Deal(Base):
         nullable=False,
     )
 
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="new",
+    )
+
     participant_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
@@ -70,3 +73,35 @@ class Deal(Base):
         nullable=False,
         default=utc_now,
     )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+    )
+
+    @property
+    def status_label(self) -> str:
+        return DEAL_STATUS_LABELS.get(self.status, self.status)
+
+    @property
+    def item_id(self) -> uuid.UUID:
+        return self.given_item_id
+
+
+class DealStatus(str, Enum):
+    NEW = "new"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+DEAL_STATUS_LABELS = {
+    DealStatus.NEW.value: "Новая заявка",
+    DealStatus.ACCEPTED.value: "Принята",
+    DealStatus.REJECTED.value: "Отклонена",
+    DealStatus.COMPLETED.value: "Завершена",
+    DealStatus.CANCELLED.value: "Отменена",
+}

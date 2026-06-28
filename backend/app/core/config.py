@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     public_base_url: str = "http://127.0.0.1:8000"
     max_upload_size_mb: int = 5
     admin_api_token: str = "change_me"
+    allow_admin_token_auth: bool = True
+    allow_admin_token_fallback: bool | None = None
+    jwt_secret_key: str = "change_me"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 1440
+    dev_mode: bool = False
     telegram_bot_token: str = "change_me"
     backend_api_url: str = "http://127.0.0.1:8000"
     cors_origins: list[str] = [
@@ -33,6 +39,10 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=False,
     )
+
+    def model_post_init(self, __context: object) -> None:
+        if self.allow_admin_token_fallback is not None:
+            self.allow_admin_token_auth = self.allow_admin_token_fallback
 
     @property
     def database_url(self) -> str:

@@ -2,11 +2,14 @@ import asyncio
 from io import BytesIO
 
 from aiogram import Bot, Dispatcher, F, Router
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
@@ -29,6 +32,15 @@ class NewOfferStates(StatesGroup):
     participant_public_name = State()
     participant_visible = State()
     photos = State()
+
+
+class NewItemStates(StatesGroup):
+    title = State()
+    description = State()
+
+
+class RespondStates(StatesGroup):
+    item = State()
 
 
 def display_name_from_message(message: Message) -> str | None:
@@ -73,7 +85,11 @@ async def start(message: Message):
         f"Ваш backend user_id: {user['id']}\n"
         "Команды:\n"
         "/new_offer - подать оффер\n"
-        "/my_offers - посмотреть мои офферы"
+        "/my_offers - посмотреть мои офферы\n"
+        "/new_item - создать предмет для обмена\n"
+        "/my_items - посмотреть мои предметы\n"
+        "/respond <offer_id> - откликнуться на оффер\n"
+        "/my_deals - посмотреть мои сделки"
     )
 
 
@@ -97,11 +113,187 @@ async def my_offers(message: Message):
     for offer in offers:
         public_state = "опубликован" if offer["is_public"] else "не опубликован"
         city = offer["city"] or "город не указан"
+        status = offer.get("status_label") or offer["status"]
         lines.append(
-            f"- {offer['title']} | {city} | {offer['status']} | {public_state}"
+            f"- {offer['title']} | {city} | {status} | {public_state}"
         )
 
     await message.answer("\n".join(lines))
+
+
+@router.message(Command("new_item"))
+async def new_item(message: Message, state: FSMContext):
+    await state.clear()
+    await state.set_state(NewItemStates.title)
+    await message.answer(
+        "Введите название предмета, который хотите предложить в обмен.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@router.message(NewItemStates.title)
+async def collect_item_title(message: Message, state: FSMContext):
+    if not message.text or len(message.text.strip()) < 2:
+        await message.answer("Название должно быть хотя бы из 2 символов.")
+        return
+
+    await state.update_data(title=message.text.strip())
+    await state.set_state(NewItemStates.description)
+    await message.answer("Опишите предмет подробнее.")
+
+
+@router.message(NewItemStates.description)
+async def collect_item_description(message: Message, state: FSMContext):
+    if not message.text or len(message.text.strip()) < 2:
+        await message.answer("Описание должно быть хотя бы из 2 символов.")
+        return
+
+    data = await state.get_data()
+
+    try:
+        user = await get_or_create_backend_user(message)
+
+        async with BackendClient(settings.backend_api_url) as backend:
+            item = await backend.create_item(
+                {
+                    "user_id": user["id"],
+                    "title": data["title"],
+                    "description": message.text.strip(),
+                }
+            )
+    except (BackendClientError, ValueError):
+        await message.answer("Не удалось создать предмет. Проверьте backend и попробуйте позже.")
+        return
+
+    await state.clear()
+    await message.answer(
+        "Предмет создан.\n"
+        f"id: {item['id']}\n"
+        f"status: {item['status']}",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@router.message(Command("my_items"))
+async def my_items(message: Message):
+    try:
+        user = await get_or_create_backend_user(message)
+
+        async with BackendClient(settings.backend_api_url) as backend:
+            items = await backend.get_user_items(user["id"])
+    except (BackendClientError, ValueError):
+        await message.answer("Не удалось получить предметы. Попробуйте позже.")
+        return
+
+    if not items:
+        await message.answer("У вас пока нет предметов. Создайте первый через /new_item.")
+        return
+
+    lines = ["Ваши предметы:"]
+
+    for item in items:
+        lines.append(f"- {item['title']} | {item['status']} | {item['id']}")
+
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("my_deals"))
+async def my_deals(message: Message):
+    try:
+        user = await get_or_create_backend_user(message)
+
+        async with BackendClient(settings.backend_api_url) as backend:
+            deals = await backend.get_user_deals(user["id"])
+    except (BackendClientError, ValueError):
+        await message.answer("Не удалось получить сделки. Попробуйте позже.")
+        return
+
+    if not deals:
+        await message.answer("У вас пока нет сделок.")
+        return
+
+    lines = ["Ваши сделки:"]
+
+    for deal in deals:
+        status = deal.get("status_label") or deal["status"]
+        offer_title = deal.get("offer_title") or "оффер без названия"
+        lines.append(f"- {offer_title} ← {deal['item_title']} | {status}")
+
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("respond"))
+async def respond(message: Message, command: CommandObject, state: FSMContext):
+    offer_id = command.args.strip() if command.args else ""
+
+    if not offer_id:
+        await message.answer("Укажите offer_id: /respond <offer_id>")
+        return
+
+    try:
+        user = await get_or_create_backend_user(message)
+
+        async with BackendClient(settings.backend_api_url) as backend:
+            items = await backend.get_user_items(user["id"])
+    except (BackendClientError, ValueError):
+        await message.answer("Не удалось получить ваши предметы. Попробуйте позже.")
+        return
+
+    if not items:
+        await message.answer("У вас пока нет предметов. Сначала создайте предмет через /new_item.")
+        return
+
+    await state.clear()
+    await state.set_state(RespondStates.item)
+    await state.update_data(offer_id=offer_id)
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=item["title"],
+                    callback_data=f"respond_item:{item['id']}",
+                )
+            ]
+            for item in items[:10]
+        ]
+    )
+
+    await message.answer("Выберите предмет для обмена.", reply_markup=keyboard)
+
+
+@router.callback_query(RespondStates.item, F.data.startswith("respond_item:"))
+async def choose_response_item(callback: CallbackQuery, state: FSMContext):
+    item_id = callback.data.split(":", 1)[1] if callback.data else ""
+    data = await state.get_data()
+    offer_id = data.get("offer_id")
+
+    if not offer_id or not item_id:
+        await callback.message.answer("Не удалось определить offer или item. Запустите /respond заново.")
+        await state.clear()
+        await callback.answer()
+        return
+
+    try:
+        async with BackendClient(settings.backend_api_url) as backend:
+            deal = await backend.create_deal(
+                {
+                    "offer_id": offer_id,
+                    "item_id": item_id,
+                }
+            )
+    except BackendClientError as error:
+        await callback.message.answer(f"Не удалось отправить отклик: {error}")
+        await callback.answer()
+        return
+
+    await state.clear()
+    await callback.message.answer(
+        "Отклик отправлен.\n"
+        f"id: {deal['id']}\n"
+        f"status: {deal.get('status_label') or deal['status']}"
+    )
+    await callback.answer()
 
 
 @router.message(Command("new_offer"))
@@ -304,6 +496,10 @@ async def photos_fallback(message: Message):
 
 
 async def main():
+    if not settings.telegram_bot_token or settings.telegram_bot_token == "change_me":
+        print("TELEGRAM_BOT_TOKEN is not configured; Telegram bot service is idle.")
+        return
+
     bot = Bot(token=settings.telegram_bot_token)
     dispatcher = Dispatcher(storage=MemoryStorage())
     dispatcher.include_router(router)

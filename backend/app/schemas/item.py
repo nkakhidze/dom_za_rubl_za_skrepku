@@ -25,12 +25,20 @@ class AdminItemCreateRequest(BaseModel):
     photo_url: str | None = Field(default=None, max_length=1000)
 
 
+class UserItemCreateRequest(BaseModel):
+    user_id: UUID
+    title: str = Field(min_length=2, max_length=255)
+    description: str = Field(min_length=2)
+
+
 class AdminItemResponse(BaseModel):
     id: UUID
+    user_id: UUID | None
 
     title: str
     description: str | None
     item_type: str
+    status: str
 
     internal_value: int | None
     valuation_source: str | None
@@ -44,6 +52,19 @@ class AdminItemResponse(BaseModel):
     public_story: str | None
     photo_url: str | None
 
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserItemResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    title: str
+    description: str
+    status: str
     created_at: datetime
     updated_at: datetime
 

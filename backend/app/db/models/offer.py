@@ -20,12 +20,21 @@ class OfferType(str, Enum):
 
 class OfferStatus(str, Enum):
     NEW = "new"
-    NEED_DETAILS = "need_details"
-    SHORTLISTED = "shortlisted"
+    MODERATION = "moderation"
+    APPROVED = "approved"
+    PUBLISHED = "published"
     REJECTED = "rejected"
-    ACCEPTED = "accepted"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+    ARCHIVED = "archived"
+
+
+OFFER_STATUS_LABELS = {
+    OfferStatus.NEW.value: "Новая заявка",
+    OfferStatus.MODERATION.value: "На модерации",
+    OfferStatus.APPROVED.value: "Одобрено",
+    OfferStatus.PUBLISHED.value: "Опубликовано",
+    OfferStatus.REJECTED.value: "Отклонено",
+    OfferStatus.ARCHIVED.value: "Снято с публикации",
+}
 
 
 class ExchangePreference(str, Enum):
@@ -123,6 +132,10 @@ class Offer(Base):
             return None
 
         return self.participant_public_name
+
+    @property
+    def status_label(self) -> str:
+        return OFFER_STATUS_LABELS.get(self.status, self.status)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

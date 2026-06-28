@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_db
-from app.db.models.offer import Offer
+from app.db.models.offer import Offer, OfferStatus
 from app.schemas.offer import (
     OfferCreateRequest,
     OfferCreateResponse,
@@ -29,7 +29,10 @@ def get_public_offers(
     query = (
         select(Offer)
         .options(selectinload(Offer.photos))
-        .where(Offer.is_public.is_(True))
+        .where(
+            Offer.is_public.is_(True),
+            Offer.status == OfferStatus.PUBLISHED.value,
+        )
         .order_by(Offer.created_at.desc())
     )
 
@@ -47,6 +50,7 @@ def get_public_offer(
         .where(
             Offer.id == offer_id,
             Offer.is_public.is_(True),
+            Offer.status == OfferStatus.PUBLISHED.value,
         )
     )
 

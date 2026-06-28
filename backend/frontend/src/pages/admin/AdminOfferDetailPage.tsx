@@ -2,8 +2,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  AdminItem,
   AdminOffer,
   AdminOfferPhoto,
+  createDealFromOffer,
+  getAdminItems,
   getAdminOfferById,
   getAdminOfferPhotos,
   updateOfferModeration,
@@ -12,12 +15,11 @@ import {
 
 const OFFER_STATUSES = [
   "new",
-  "need_details",
-  "shortlisted",
+  "moderation",
+  "approved",
+  "published",
   "rejected",
-  "accepted",
-  "completed",
-  "cancelled",
+  "archived",
 ];
 
 function numberOrNull(value: string): number | null {
@@ -36,6 +38,7 @@ export function AdminOfferDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [statusValue, setStatusValue] = useState("new");
+  const [currentItem, setCurrentItem] = useState<AdminItem | null>(null);
 
   const [moderatedValue, setModeratedValue] = useState("");
   const [publicValue, setPublicValue] = useState("");
@@ -45,6 +48,10 @@ export function AdminOfferDetailPage() {
   const [isPublic, setIsPublic] = useState(false);
   const [participantVisible, setParticipantVisible] = useState(false);
   const [participantPublicName, setParticipantPublicName] = useState("");
+  const [dealPublicStory, setDealPublicStory] = useState("");
+  const [dealVideoUrl, setDealVideoUrl] = useState("");
+  const [dealOwnerName, setDealOwnerName] = useState("");
+  const [dealIsPublic, setDealIsPublic] = useState(true);
 
   async function loadOffer() {
     if (!offerId) {
@@ -57,12 +64,14 @@ export function AdminOfferDetailPage() {
     setError(null);
 
     try {
-      const [loadedOffer, loadedPhotos] = await Promise.all([
+      const [loadedOffer, loadedPhotos, currentItems] = await Promise.all([
         getAdminOfferById(offerId),
         getAdminOfferPhotos(offerId),
+        getAdminItems({ is_current: true }),
       ]);
       setOffer(loadedOffer);
       setPhotos(loadedPhotos);
+      setCurrentItem(currentItems[0] || null);
       setStatusValue(loadedOffer.status);
       setModeratedValue(loadedOffer.moderated_value?.toString() || "");
       setPublicValue(loadedOffer.public_value?.toString() || "");
@@ -72,12 +81,46 @@ export function AdminOfferDetailPage() {
       setIsPublic(loadedOffer.is_public);
       setParticipantVisible(loadedOffer.participant_visible);
       setParticipantPublicName(loadedOffer.participant_public_name || "");
+      setDealPublicStory(loadedOffer.public_comment || "");
+      setDealOwnerName(loadedOffer.participant_public_name || "");
     } catch (loadError) {
       setError(
         loadError instanceof Error ? loadError.message : "Не удалось загрузить оффер.",
       );
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function submitAcceptIntoChain(event: FormEvent) {
+    event.preventDefault();
+
+    if (!offerId || !offer || !currentItem) {
+      setError("Нужен текущий предмет цепочки и заявка.");
+      return;
+    }
+
+    setError(null);
+    setNotice(null);
+
+    try {
+      const deal = await createDealFromOffer(offerId, {
+        given_item_id: currentItem.id,
+        owner_type: "personal",
+        owner_name: dealOwnerName || offer.participant_public_name || null,
+        public_story: dealPublicStory || offer.public_comment || null,
+        video_url: dealVideoUrl || null,
+        photo_url: photos[0]?.photo_url || null,
+        is_public: dealIsPublic,
+      });
+      setNotice(`Заявка принята в цепочку. Создан шаг №${deal.step_number}.`);
+      await loadOffer();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Не удалось принять заявку в цепочку.",
+      );
     }
   }
 
@@ -107,6 +150,8 @@ export function AdminOfferDetailPage() {
         participant_public_name: participantPublicName || null,
       });
       setOffer(updated);
+      setStatusValue(updated.status);
+      setIsPublic(updated.is_public);
       setNotice("Модерация сохранена.");
     } catch (saveError) {
       setError(
@@ -128,6 +173,8 @@ export function AdminOfferDetailPage() {
     try {
       const updated = await updateOfferStatus(offerId, statusValue);
       setOffer(updated);
+      setStatusValue(updated.status);
+      setIsPublic(updated.is_public);
       setNotice("Статус сохранён.");
     } catch (saveError) {
       setError(
@@ -167,7 +214,7 @@ export function AdminOfferDetailPage() {
       <div className="admin-layout">
         <div>
           <section className="admin-panel">
-            <h2>Данные оффера</h2>
+            <h2>Данные заявки</h2>
             <p>{offer.description}</p>
             <dl className="field-list">
               <div>
@@ -180,7 +227,7 @@ export function AdminOfferDetailPage() {
               </div>
               <div>
                 <dt>status</dt>
-                <dd>{offer.status}</dd>
+                <dd>{offer.status_label || offer.status}</dd>
               </div>
               <div>
                 <dt>is_public</dt>
@@ -199,6 +246,57 @@ export function AdminOfferDetailPage() {
                 <dd>{offer.contract_status || "-"}</dd>
               </div>
             </dl>
+          </section>
+
+          <section className="admin-panel">
+            <h2>Принять в цепочку обменов</h2>
+            {currentItem ? (
+              <>
+                <p className="meta">
+                  Отдадим текущий предмет: <strong>{currentItem.title}</strong>
+                </p>
+                <p className="meta">
+                  Получим предмет из заявки: <strong>{offer.title}</strong>
+                </p>
+                <form className="offer-form" onSubmit={submitAcceptIntoChain}>
+                  <label>
+                    owner_name
+                    <input
+                      value={dealOwnerName}
+                      onChange={(event) => setDealOwnerName(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    public_story
+                    <textarea
+                      value={dealPublicStory}
+                      onChange={(event) => setDealPublicStory(event.target.value)}
+                      rows={3}
+                    />
+                  </label>
+                  <label>
+                    video_url
+                    <input
+                      value={dealVideoUrl}
+                      onChange={(event) => setDealVideoUrl(event.target.value)}
+                    />
+                  </label>
+                  <label className="checkbox">
+                    <input
+                      checked={dealIsPublic}
+                      onChange={(event) => setDealIsPublic(event.target.checked)}
+                      type="checkbox"
+                    />
+                    Опубликовать шаг в истории обменов
+                  </label>
+                  <button type="submit">Принять заявку в цепочку</button>
+                </form>
+              </>
+            ) : (
+              <p className="notice">
+                Сначала создайте текущий предмет цепочки на странице “Предметы”.
+              </p>
+            )}
           </section>
 
           <section className="admin-panel">

@@ -89,6 +89,48 @@ class BackendClient:
 
         return self._json_or_raise(response)
 
+    async def create_item(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        response = await self.client.post(
+            f"{self.base_url}/api/items",
+            json=payload,
+        )
+
+        return self._json_or_raise(response)
+
+    async def get_user_items(
+        self,
+        user_id: str,
+    ) -> list[dict[str, Any]]:
+        response = await self.client.get(
+            f"{self.base_url}/api/users/{user_id}/items",
+        )
+
+        return self._json_or_raise(response)
+
+    async def create_deal(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        response = await self.client.post(
+            f"{self.base_url}/api/deals",
+            json=payload,
+        )
+
+        return self._json_or_raise(response)
+
+    async def get_user_deals(
+        self,
+        user_id: str,
+    ) -> list[dict[str, Any]]:
+        response = await self.client.get(
+            f"{self.base_url}/api/users/{user_id}/deals",
+        )
+
+        return self._json_or_raise(response)
+
     def _json_or_raise(self, response: httpx.Response):
         if response.is_success:
             return response.json()

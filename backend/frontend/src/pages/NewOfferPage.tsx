@@ -234,7 +234,7 @@ export function NewOfferPage() {
           <button disabled={submitState === "submitting"} type="submit">
             {submitState === "submitting" ? "Отправляем..." : "Отправить"}
           </button>
-          <Link to="/">Вернуться в каталог</Link>
+          <Link to="/">Вернуться к истории обменов</Link>
         </div>
       </form>
     </section>

@@ -1,34 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   AdminOffer,
+  AuthUser,
   clearAdminToken,
   getAdminOffers,
-  getAdminToken,
-  setAdminToken,
+  getMe,
 } from "../../api/client";
 
 type Filter = "all" | "public" | "private";
 
 export function AdminOffersPage() {
-  const [tokenInput, setTokenInput] = useState(getAdminToken());
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [offers, setOffers] = useState<AdminOffer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  function saveToken() {
-    setAdminToken(tokenInput.trim());
-    void loadOffers();
-  }
-
-  function resetToken() {
+  function logout() {
     clearAdminToken();
-    setTokenInput("");
+    setCurrentUser(null);
     setOffers([]);
     setError(null);
+    navigate("/admin/login");
   }
 
   async function loadOffers() {
@@ -49,9 +46,15 @@ export function AdminOffersPage() {
   }
 
   useEffect(() => {
-    if (getAdminToken()) {
-      void loadOffers();
-    }
+    getMe()
+      .then((user) => {
+        setCurrentUser(user);
+        void loadOffers();
+      })
+      .catch(() => {
+        setCurrentUser(null);
+        setError("Нужно войти в админку.");
+      });
   }, []);
 
   const statuses = useMemo(
@@ -79,27 +82,29 @@ export function AdminOffersPage() {
     <section>
       <div className="section-heading">
         <div>
-          <h1>Админка офферов</h1>
-          <p className="muted">Модерация, публикация и смена статуса.</p>
+          <h1>Заявки пользователей</h1>
+          <p className="muted">
+            Входящие заявки пользователей. Заявка становится шагом цепочки только
+            после принятия в обмен.
+          </p>
         </div>
       </div>
 
       <div className="admin-token-panel">
-        <label>
-          Admin token
-          <input
-            type="password"
-            value={tokenInput}
-            onChange={(event) => setTokenInput(event.target.value)}
-            placeholder="Authorization Bearer token"
-          />
-        </label>
+        {currentUser ? (
+          <p className="meta">
+            Вы вошли как {currentUser.display_name || currentUser.login || currentUser.id} ·{" "}
+            {currentUser.roles.join(", ")}
+          </p>
+        ) : (
+          <p className="meta">Для доступа к админке войдите по login/password.</p>
+        )}
         <div className="actions">
-          <button type="button" onClick={saveToken}>
-            Сохранить токен
-          </button>
-          <button className="secondary-button" type="button" onClick={resetToken}>
-            Сбросить токен
+          <Link className="primary-link" to="/admin/login">
+            Войти
+          </Link>
+          <button className="secondary-button" type="button" onClick={logout}>
+            Выйти
           </button>
           <button className="secondary-button" type="button" onClick={loadOffers}>
             Обновить
@@ -127,7 +132,7 @@ export function AdminOffersPage() {
       </div>
 
       {!isLoading && filteredOffers.length === 0 ? (
-        <p className="notice">Офферов пока нет.</p>
+        <p className="notice">Заявок пока нет.</p>
       ) : (
         <div className="admin-list">
           {filteredOffers.map((offer) => (
@@ -142,8 +147,8 @@ export function AdminOffersPage() {
               <div>
                 <h2>{offer.title}</h2>
                 <p className="meta">
-                  {offer.id.slice(0, 8)} · {offer.city || "город не указан"} ·{" "}
-                  {offer.status} · {offer.is_public ? "public" : "private"}
+                  заявка {offer.id.slice(0, 8)} · {offer.city || "город не указан"} ·{" "}
+                  {offer.status_label || offer.status} · {offer.is_public ? "public" : "private"}
                 </p>
                 <p className="meta">
                   declared: {offer.declared_value ?? "-"} · moderated:{" "}

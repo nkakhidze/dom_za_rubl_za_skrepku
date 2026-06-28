@@ -17,6 +17,7 @@ npm run dev
 
 The app uses:
 
+- `GET /api/public/exchange-chain`
 - `GET /api/offers`
 - `GET /api/offers/{offer_id}`
 - `POST /api/files/images`
@@ -27,25 +28,44 @@ The app uses:
 Open:
 
 ```text
-http://127.0.0.1:5173/admin/offers
+http://127.0.0.1:5173/admin/login
 ```
 
-Enter the backend admin token from `.env`:
-
-```env
-ADMIN_API_TOKEN=change_me
-```
-
-The token is stored in browser `localStorage` and sent as:
+Login through backend auth:
 
 ```http
-Authorization: Bearer <token>
+POST /api/auth/login
 ```
+
+The frontend stores only the returned JWT access token in `localStorage` for the MVP and sends it as:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+Do not store login/password in `localStorage`.
+
+Temporary `ADMIN_API_TOKEN` fallback can still be enabled in backend dev env, but the frontend admin UI is JWT-first.
 
 Admin pages use:
 
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 - `GET /api/admin/offers`
 - `GET /api/admin/offers/{offer_id}`
 - `GET /api/admin/offers/{offer_id}/photos`
 - `PATCH /api/admin/offers/{offer_id}/moderation`
 - `PATCH /api/admin/offers/{offer_id}/status`
+- `GET /api/admin/items`
+- `POST /api/admin/items`
+- `POST /api/admin/deals/from-offer/{offer_id}`
+- `GET /api/admin/deals`
+- `PATCH /api/admin/deals/{deal_id}/status`
+
+Admin flow:
+
+1. `/admin/items` creates the first current item in the exchange chain.
+2. `/admin/offers` shows incoming user requests.
+3. `/admin/offers/:id` can accept a request into the chain.
+4. Accepting creates a completed deal and the received item becomes the new current item.
+5. Public exchange history reads `/api/public/exchange-chain`.

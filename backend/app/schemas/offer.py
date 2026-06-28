@@ -62,6 +62,7 @@ class PublicOfferListItem(BaseModel):
         validation_alias="public_participant_name",
     )
 
+    status_label: str
     created_at: datetime
 
     class Config:
@@ -82,6 +83,7 @@ class UserOfferListItem(BaseModel):
 
     declared_value: int | None
     status: str
+    status_label: str
     is_public: bool
     public_comment: str | None
 
@@ -113,6 +115,7 @@ class AdminOfferListItem(BaseModel):
 
     exchange_preference: str
     status: str
+    status_label: str
 
     is_public: bool
     public_comment: str | None

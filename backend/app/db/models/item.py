@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -26,6 +26,11 @@ class OwnerType(str, Enum):
     OTHER = "other"
 
 
+class ItemStatus(str, Enum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
 class Item(Base):
     __tablename__ = "items"
 
@@ -34,6 +39,14 @@ class Item(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
+
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+
+    user: Mapped["User | None"] = relationship(back_populates="items")
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -52,6 +65,12 @@ class Item(Base):
     )
 
     owner_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default=ItemStatus.ACTIVE.value,
+    )
 
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
