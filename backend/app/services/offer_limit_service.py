@@ -20,7 +20,7 @@ class OfferLimitService:
         days_from_registration = (now.date() - user_created_at.date()).days
 
         if days_from_registration == 0:
-            if today_user_offers < 2:
+            if today_user_offers < 3:
                 return OfferLimitResult(allowed=True)
 
             next_date = now.date() + timedelta(days=1)

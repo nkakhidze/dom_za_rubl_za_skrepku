@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg
+alembic
+pydantic-settings
+python-multipart
+Pillow
+httpx
+aiogram

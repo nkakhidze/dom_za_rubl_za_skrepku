@@ -1,0 +1,52 @@
+[
+  {
+    "code": "user_agreement",
+    "title": "Пользовательское соглашение",
+    "version": "2026-07-01",
+    "effective_from": "2026-07-01",
+    "file": "user-agreement/2026-07-01.md",
+    "required": true,
+    "revocable": false,
+    "informational": false
+  },
+  {
+    "code": "privacy_policy",
+    "title": "Политика обработки персональных данных",
+    "version": "2026-07-01",
+    "effective_from": "2026-07-01",
+    "file": "privacy-policy/2026-07-01.md",
+    "required": true,
+    "revocable": false,
+    "informational": true
+  },
+  {
+    "code": "personal_data_consent",
+    "title": "Согласие на обработку персональных данных",
+    "version": "2026-07-01",
+    "effective_from": "2026-07-01",
+    "file": "personal-data-consent/2026-07-01.md",
+    "required": true,
+    "revocable": false,
+    "informational": false
+  },
+  {
+    "code": "public_data_consent",
+    "title": "Согласие на распространение персональных данных",
+    "version": "2026-07-01",
+    "effective_from": "2026-07-01",
+    "file": "public-data-consent/2026-07-01.md",
+    "required": false,
+    "revocable": true,
+    "informational": false
+  },
+  {
+    "code": "marketing_consent",
+    "title": "Согласие на получение информационных и рекламных сообщений",
+    "version": "2026-07-01",
+    "effective_from": "2026-07-01",
+    "file": "marketing-consent/2026-07-01.md",
+    "required": false,
+    "revocable": true,
+    "informational": false
+  }
+]

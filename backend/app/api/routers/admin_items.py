@@ -1,16 +1,27 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_db
-from app.db.models.item import Item
-from app.schemas.item import AdminItemCreateRequest, AdminItemResponse
+from app.api.deps import get_db, require_admin_access, require_any_role
+from app.db.models.auth import RoleCode
+from app.db.models.deal import Deal
+from app.db.models.item import Item, ItemStatus
+from app.db.models.item_photo import ItemPhoto
+from app.schemas.item import (
+    AdminItemCreateRequest,
+    AdminItemPhotoCreateRequest,
+    AdminItemPhotoResponse,
+    AdminItemResponse,
+    AdminItemUpdateRequest,
+)
+from app.services.image_service import delete_uploaded_image_files
 
 router = APIRouter(
     prefix="/admin/items",
     tags=["admin items"],
+    dependencies=[Depends(require_admin_access)],
 )
 
 @router.get("/{item_id}", response_model=AdminItemResponse)
@@ -37,7 +48,24 @@ def get_items(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    query = select(Item).order_by(Item.created_at.desc())
+    received_deal_date = (
+        select(Deal.deal_date)
+        .where(Deal.received_item_id == Item.id)
+        .order_by(Deal.deal_date.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+    query = (
+        select(Item)
+        .options(selectinload(Item.photos))
+        .order_by(
+            Item.is_current.desc(),
+            received_deal_date.desc().nullslast(),
+            Item.sequence_number.desc().nullslast(),
+            Item.created_at.desc(),
+        )
+    )
 
     if is_current is not None:
         query = query.where(Item.is_current == is_current)
@@ -55,9 +83,15 @@ def create_item(
 ):
     if request.is_current:
         db.query(Item).filter(Item.is_current.is_(True)).update(
-            {Item.is_current: False},
+            {Item.is_current: False, Item.status: ItemStatus.PAST.value},
             synchronize_session=False,
         )
+
+    next_sequence_number = request.sequence_number
+
+    if request.is_current and next_sequence_number is None:
+        max_sequence_number = db.scalar(select(func.max(Item.sequence_number)))
+        next_sequence_number = (max_sequence_number or 0) + 1
 
     item = Item(
         title=request.title,
@@ -67,10 +101,18 @@ def create_item(
         valuation_source=request.valuation_source,
         owner_type=request.owner_type.value,
         owner_name=request.owner_name,
+        status=ItemStatus.CURRENT.value if request.is_current else ItemStatus.PLANNED.value,
+        sequence_number=next_sequence_number,
         is_current=request.is_current,
         is_public=request.is_public,
         public_story=request.public_story,
         photo_url=request.photo_url,
+        vk_url=request.vk_url,
+        tiktok_url=request.tiktok_url,
+        youtube_url=request.youtube_url,
+        dzen_url=request.dzen_url,
+        rutube_url=request.rutube_url,
+        instagram_url=request.instagram_url,
     )
 
     db.add(item)
@@ -78,3 +120,138 @@ def create_item(
     db.refresh(item)
 
     return item
+
+
+@router.patch("/{item_id}", response_model=AdminItemResponse)
+def update_item(
+    item_id: UUID,
+    request: AdminItemUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    item = db.get(Item, item_id)
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Предмет не найден",
+        )
+
+    update_data = request.model_dump(exclude_unset=True)
+
+    if update_data.get("is_current") is True:
+        db.query(Item).filter(Item.id != item_id, Item.is_current.is_(True)).update(
+            {Item.is_current: False, Item.status: ItemStatus.PAST.value},
+            synchronize_session=False,
+        )
+        item.status = ItemStatus.CURRENT.value
+
+        if item.sequence_number is None and update_data.get("sequence_number") is None:
+            max_sequence_number = db.scalar(select(func.max(Item.sequence_number)))
+            item.sequence_number = (max_sequence_number or 0) + 1
+
+    for field_name, field_value in update_data.items():
+        if field_name == "item_type" and field_value is not None:
+            item.item_type = field_value.value
+        elif field_name == "owner_type" and field_value is not None:
+            item.owner_type = field_value.value
+        elif field_name == "is_current":
+            item.is_current = field_value
+        else:
+            setattr(item, field_name, field_value)
+
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@router.post(
+    "/{item_id}/photos",
+    response_model=AdminItemPhotoResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_any_role(RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
+def add_item_photo(
+    item_id: UUID,
+    request: AdminItemPhotoCreateRequest,
+    db: Session = Depends(get_db),
+):
+    item = db.get(Item, item_id)
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Предмет не найден",
+        )
+
+    had_existing_photos = bool(item.photos)
+    next_sort_order = request.sort_order
+    if next_sort_order == 0 and had_existing_photos:
+        max_sort_order = db.scalar(
+            select(func.max(ItemPhoto.sort_order)).where(ItemPhoto.item_id == item.id)
+        )
+        next_sort_order = (max_sort_order or 0) + 1
+
+    photo = ItemPhoto(
+        item_id=item.id,
+        photo_url=request.photo_url,
+        thumbnail_url=request.thumbnail_url,
+        width=request.width,
+        height=request.height,
+        thumbnail_width=request.thumbnail_width,
+        thumbnail_height=request.thumbnail_height,
+        size_bytes=request.size_bytes,
+        thumbnail_size_bytes=request.thumbnail_size_bytes,
+        sort_order=next_sort_order,
+    )
+
+    if not had_existing_photos:
+        item.photo_url = request.photo_url
+
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+
+    return photo
+
+
+@router.delete(
+    "/{item_id}/photos/{photo_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_any_role(RoleCode.ADMIN.value, RoleCode.SUPER_ADMIN.value))],
+)
+def delete_item_photo(
+    item_id: UUID,
+    photo_id: UUID,
+    db: Session = Depends(get_db),
+):
+    photo = db.scalar(
+        select(ItemPhoto).where(
+            ItemPhoto.id == photo_id,
+            ItemPhoto.item_id == item_id,
+        )
+    )
+
+    if photo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Фото не найдено",
+        )
+
+    photo_url = photo.photo_url
+    thumbnail_url = photo.thumbnail_url
+    db.delete(photo)
+    db.flush()
+
+    first_photo_url = db.scalar(
+        select(ItemPhoto.photo_url)
+        .where(ItemPhoto.item_id == item_id)
+        .order_by(ItemPhoto.sort_order.asc(), ItemPhoto.created_at.asc())
+        .limit(1)
+    )
+    item = db.get(Item, item_id)
+    if item is not None:
+        item.photo_url = first_photo_url
+
+    db.commit()
+    delete_uploaded_image_files(photo_url, thumbnail_url)

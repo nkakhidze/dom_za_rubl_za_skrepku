@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,12 +20,34 @@ class OfferType(str, Enum):
 
 class OfferStatus(str, Enum):
     NEW = "new"
-    NEED_DETAILS = "need_details"
-    SHORTLISTED = "shortlisted"
+    REVIEWED = "reviewed"
+    SELECTED = "selected"
+    HIDDEN = "hidden"
     REJECTED = "rejected"
-    ACCEPTED = "accepted"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+    # Legacy marketplace statuses. Keep them readable while data is migrated.
+    MODERATION = "moderation"
+    APPROVED = "approved"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class OfferVisibilityStatus(str, Enum):
+    NORMAL = "normal"
+    LOW_PRIORITY = "low_priority"
+    HIDDEN = "hidden"
+
+
+OFFER_STATUS_LABELS = {
+    OfferStatus.NEW.value: "Новая заявка",
+    OfferStatus.REVIEWED.value: "Просмотрена",
+    OfferStatus.SELECTED.value: "Выбрана в цепочку",
+    OfferStatus.HIDDEN.value: "Скрыта",
+    OfferStatus.REJECTED.value: "Отклонена",
+    OfferStatus.MODERATION.value: "На модерации",
+    OfferStatus.APPROVED.value: "Одобрено",
+    OfferStatus.PUBLISHED.value: "Опубликовано",
+    OfferStatus.ARCHIVED.value: "Снято с публикации",
+}
 
 
 class ExchangePreference(str, Enum):
@@ -42,6 +64,9 @@ class ContractStatus(str, Enum):
 
 class Offer(Base):
     __tablename__ = "offers"
+    __table_args__ = (
+        UniqueConstraint("source_idempotency_key", name="uq_offers_source_idempotency_key"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -54,6 +79,8 @@ class Offer(Base):
         ForeignKey("users.id"),
         nullable=False,
     )
+
+    user: Mapped["User"] = relationship(back_populates="offers")
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -81,12 +108,20 @@ class Offer(Base):
         nullable=False,
         default=OfferStatus.NEW.value,
     )
+    visibility_status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default=OfferVisibilityStatus.NORMAL.value,
+    )
+    sort_priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Legacy public offer fields. The sequential chain uses deals/items instead.
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     public_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     participant_public_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     participant_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     consent_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     consent_accepted_at: Mapped[datetime | None] = mapped_column(
@@ -114,6 +149,21 @@ class Offer(Base):
     @property
     def photo_urls(self) -> list[str]:
         return [photo.photo_url for photo in self.photos]
+
+    @property
+    def thumbnail_urls(self) -> list[str]:
+        return [photo.thumbnail_url or photo.photo_url for photo in self.photos]
+
+    @property
+    def public_participant_name(self) -> str | None:
+        if not self.participant_visible:
+            return None
+
+        return self.participant_public_name
+
+    @property
+    def status_label(self) -> str:
+        return OFFER_STATUS_LABELS.get(self.status, self.status)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

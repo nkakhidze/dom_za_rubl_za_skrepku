@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
 from sqlalchemy import select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, selectinload
 
 from app.api.deps import get_db
-from app.db.models.deal import Deal
+from app.db.models.deal import Deal, DealStatus
 from app.db.models.item import Item
-from app.schemas.deal import PublicExchangeChainItem
-from app.schemas.item import PublicCurrentItemResponse
+from app.schemas.deal import PublicExchangeChainDealItem, PublicExchangeChainItem
+from app.schemas.item import PublicCurrentItemResponse, PublicItemDetailResponse
 
 router = APIRouter(
     prefix="/public",
@@ -19,7 +20,9 @@ def get_current_item(
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
-        select(Item).where(
+        select(Item)
+        .options(selectinload(Item.photos))
+        .where(
             Item.is_current.is_(True),
             Item.is_public.is_(True),
         )
@@ -41,25 +44,88 @@ def get_exchange_chain(
     given_item = aliased(Item)
     received_item = aliased(Item)
 
-    rows = db.execute(
-        select(
-            Deal.step_number,
-            given_item.title.label("given_item_title"),
-            received_item.title.label("received_item_title"),
-            Deal.public_story,
-            Deal.video_url,
-            Deal.participant_public_name,
-            Deal.participant_visible,
-            Deal.deal_date,
+    rows = (
+        db.execute(
+            select(Deal, given_item, received_item)
+            .options(
+                selectinload(given_item.photos),
+                selectinload(received_item.photos),
+            )
+            .join(given_item, Deal.given_item_id == given_item.id)
+            .join(received_item, Deal.received_item_id == received_item.id)
+            .where(
+                Deal.is_public.is_(True),
+                Deal.status == DealStatus.COMPLETED.value,
+                given_item.is_public.is_(True),
+                received_item.is_public.is_(True),
+            )
+            .order_by(Deal.step_number.asc())
         )
-        .join(given_item, Deal.given_item_id == given_item.id)
-        .join(received_item, Deal.received_item_id == received_item.id)
-        .where(
-            Deal.is_public.is_(True),
-            given_item.is_public.is_(True),
-            received_item.is_public.is_(True),
-        )
-        .order_by(Deal.step_number.asc())
-    ).mappings().all()
+        .tuples()
+        .all()
+    )
 
-    return rows
+    return [
+        PublicExchangeChainItem(
+            id=deal.id,
+            step_number=deal.step_number,
+            status=deal.status,
+            public_story=deal.public_story,
+            video_url=deal.video_url,
+            participant_public_name=(
+                deal.participant_public_name if deal.participant_visible else None
+            ),
+            participant_visible=deal.participant_visible,
+            deal_date=deal.deal_date,
+            given_item=PublicExchangeChainDealItem(
+                id=deal_given_item.id,
+                title=deal_given_item.title,
+                description=deal_given_item.description,
+                photo_url=deal_given_item.photo_urls[0] if deal_given_item.photo_urls else None,
+                photo_urls=deal_given_item.photo_urls,
+                thumbnail_url=(
+                    deal_given_item.thumbnail_urls[0]
+                    if deal_given_item.thumbnail_urls
+                    else None
+                ),
+                thumbnail_urls=deal_given_item.thumbnail_urls,
+            ),
+            received_item=PublicExchangeChainDealItem(
+                id=deal_received_item.id,
+                title=deal_received_item.title,
+                description=deal_received_item.description,
+                photo_url=deal_received_item.photo_urls[0] if deal_received_item.photo_urls else None,
+                photo_urls=deal_received_item.photo_urls,
+                thumbnail_url=(
+                    deal_received_item.thumbnail_urls[0]
+                    if deal_received_item.thumbnail_urls
+                    else None
+                ),
+                thumbnail_urls=deal_received_item.thumbnail_urls,
+            ),
+        )
+        for deal, deal_given_item, deal_received_item in rows
+    ]
+
+
+@router.get("/items/{item_id}", response_model=PublicItemDetailResponse)
+def get_public_item(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+):
+    item = db.scalar(
+        select(Item)
+        .options(selectinload(Item.photos))
+        .where(
+            Item.id == item_id,
+            Item.is_public.is_(True),
+        )
+    )
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Предмет не найден",
+        )
+
+    return item

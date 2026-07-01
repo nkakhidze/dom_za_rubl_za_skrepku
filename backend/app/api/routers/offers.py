@@ -1,9 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from uuid import UUID
 
-from app.api.deps import get_db
-from app.db.models.offer import Offer
-from app.schemas.offer import OfferCreateRequest, OfferCreateResponse, OfferLimitResponse
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+
+from app.api.deps import get_db, get_optional_current_user
+from app.db.models.offer import Offer, OfferStatus
+from app.db.models.user import User
+from app.schemas.offer import (
+    OfferCreateRequest,
+    OfferCreateResponse,
+    OfferLimitResponse,
+    PublicOfferDetail,
+    PublicOfferListItem,
+)
 from app.services.offer_limit_service import OfferLimitResult
 from app.services.offer_service import OfferService
 
@@ -13,6 +23,47 @@ router = APIRouter(
 )
 
 
+@router.get("", response_model=list[PublicOfferListItem])
+def get_public_offers(
+    db: Session = Depends(get_db),
+):
+    query = (
+        select(Offer)
+        .options(selectinload(Offer.photos))
+        .where(
+            Offer.is_public.is_(True),
+            Offer.status == OfferStatus.PUBLISHED.value,
+        )
+        .order_by(Offer.created_at.desc())
+    )
+
+    return db.scalars(query).all()
+
+
+@router.get("/{offer_id}", response_model=PublicOfferDetail)
+def get_public_offer(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+):
+    offer = db.scalar(
+        select(Offer)
+        .options(selectinload(Offer.photos))
+        .where(
+            Offer.id == offer_id,
+            Offer.is_public.is_(True),
+            Offer.status == OfferStatus.PUBLISHED.value,
+        )
+    )
+
+    if offer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offer not found",
+        )
+
+    return offer
+
+
 @router.post(
     "",
     response_model=OfferCreateResponse | OfferLimitResponse,
@@ -20,12 +71,13 @@ router = APIRouter(
 )
 def create_offer(
     request: OfferCreateRequest,
+    current_user: User | None = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     service = OfferService(db)
 
     try:
-        result = service.create_offer(request)
+        result = service.create_offer(request, current_user=current_user)
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -4,7 +4,7 @@ from enum import Enum
 
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -16,6 +16,7 @@ def utc_now() -> datetime:
 class MessengerType(str, Enum):
     TELEGRAM = "telegram"
     MAX = "max"
+    WEB = "web"
 
 
 class MessengerAccount(Base):
@@ -40,6 +41,8 @@ class MessengerAccount(Base):
         ForeignKey("users.id"),
         nullable=False,
     )
+
+    user: Mapped["User"] = relationship(back_populates="messenger_accounts")
 
     messenger_type: Mapped[str] = mapped_column(String(50), nullable=False)
     external_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
