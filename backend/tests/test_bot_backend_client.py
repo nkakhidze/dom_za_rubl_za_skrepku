@@ -2,176 +2,141 @@ import unittest
 
 import httpx
 
-from bot.backend_client import BackendClient, BackendClientError
+from bot.backend_client import (
+    BackendConflictError,
+    BackendLinkExpiredError,
+    BackendUnauthorizedError,
+    BackendValidationError,
+    TelegramBackendClient,
+    TelegramUserData,
+)
 
 
-class BackendClientTestCase(unittest.IsolatedAsyncioTestCase):
-    async def test_create_or_get_user_by_telegram_id_sends_expected_request(self):
+class TelegramBackendClientTestCase(unittest.IsolatedAsyncioTestCase):
+    async def test_resolve_user_uses_internal_endpoint_and_token(self):
         requests: list[httpx.Request] = []
 
         async def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
             return httpx.Response(
                 200,
-                json={
-                    "id": "user-id",
-                    "telegram_id": "123",
-                    "display_name": "Nick",
-                },
+                json={"user_id": "user-id", "created": True, "telegram_connected": True},
             )
 
         async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.create_or_get_user_by_telegram_id("123", "Nick")
+        async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+            response = await backend.resolve_user(
+                TelegramUserData(
+                    telegram_user_id="123",
+                    username="nick",
+                    first_name="Nick",
+                    language_code="ru",
+                )
+            )
 
-        self.assertEqual(response["id"], "user-id")
-        self.assertEqual(requests[0].method, "POST")
-        self.assertEqual(str(requests[0].url), "http://backend/api/users/telegram")
+        self.assertEqual(response["user_id"], "user-id")
+        self.assertEqual(str(requests[0].url), "http://backend/api/internal/telegram/users/resolve")
+        self.assertEqual(requests[0].headers["authorization"], "Bearer secret")
         self.assertEqual(
             requests[0].read(),
-            b'{"telegram_id":"123","display_name":"Nick"}',
+            b'{"telegram_user_id":"123","username":"nick","first_name":"Nick","last_name":null,"language_code":"ru"}',
         )
 
-    async def test_create_offer_sends_payload(self):
-        requests: list[httpx.Request] = []
-        payload = {
-            "messenger_type": "telegram",
-            "external_user_id": "123",
-            "title": "Offer",
-        }
-
-        async def handler(request: httpx.Request) -> httpx.Response:
-            requests.append(request)
-            return httpx.Response(201, json={"id": "offer-id", "status": "new"})
-
-        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.create_offer(payload)
-
-        self.assertEqual(response["id"], "offer-id")
-        self.assertEqual(str(requests[0].url), "http://backend/api/offers")
-        self.assertEqual(
-            requests[0].read(),
-            b'{"messenger_type":"telegram","external_user_id":"123","title":"Offer"}',
-        )
-
-    async def test_upload_image_sends_multipart_file(self):
+    async def test_create_offer_sends_multipart_to_internal_endpoint(self):
         requests: list[httpx.Request] = []
 
         async def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
             body = request.read()
-            self.assertIn(b"offer.jpg", body)
-            self.assertIn(b"image/jpeg", body)
+            self.assertIn(b"telegram-photo-1.jpg", body)
             self.assertIn(b"image-bytes", body)
+            self.assertIn(b"idempotency-key", body)
             return httpx.Response(
                 201,
                 json={
-                    "photo_url": "http://backend/uploads/images/offer.jpg",
-                    "filename": "offer.jpg",
+                    "offer_id": "offer-id",
+                    "status": "new",
+                    "status_label": "Новая заявка",
+                    "created_at": "2026-06-29T00:00:00Z",
                 },
             )
 
         async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.upload_image(
-                content=b"image-bytes",
-                filename="offer.jpg",
-                content_type="image/jpeg",
+        async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+            response = await backend.create_offer(
+                user=TelegramUserData(telegram_user_id="123"),
+                title="Offer",
+                description="Long enough description",
+                city="Tomsk",
+                declared_value=100,
+                participant_public_name="Nick",
+                participant_visible=True,
+                idempotency_key="idempotency-key",
+                photos=[b"image-bytes"],
             )
 
-        self.assertEqual(
-            response["photo_url"],
-            "http://backend/uploads/images/offer.jpg",
-        )
-        self.assertEqual(str(requests[0].url), "http://backend/api/files/images")
+        self.assertEqual(response["offer_id"], "offer-id")
+        self.assertEqual(str(requests[0].url), "http://backend/api/internal/telegram/offers")
 
-    async def test_backend_error_raises_client_error(self):
-        async def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(422, json={"detail": "Invalid request"})
-
-        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-
-        async with BackendClient("http://backend", async_client) as backend:
-            with self.assertRaises(BackendClientError):
-                await backend.create_offer({"title": "Broken"})
-
-    async def test_create_item_sends_payload(self):
+    async def test_get_user_offers_uses_telegram_id(self):
         requests: list[httpx.Request] = []
-        payload = {
-            "user_id": "user-id",
-            "title": "Item",
-            "description": "Description",
-        }
 
         async def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
-            return httpx.Response(201, json={"id": "item-id", "status": "active"})
+            return httpx.Response(200, json=[{"id": "offer-id"}])
 
         async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.create_item(payload)
+        async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+            response = await backend.get_user_offers("123")
 
-        self.assertEqual(response["id"], "item-id")
-        self.assertEqual(str(requests[0].url), "http://backend/api/items")
+        self.assertEqual(response[0]["id"], "offer-id")
         self.assertEqual(
-            requests[0].read(),
-            b'{"user_id":"user-id","title":"Item","description":"Description"}',
+            str(requests[0].url),
+            "http://backend/api/internal/telegram/offers?telegram_user_id=123",
         )
 
-    async def test_get_user_items_uses_user_endpoint(self):
+    async def test_consume_account_link_sends_token_and_telegram_user(self):
         requests: list[httpx.Request] = []
 
         async def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
-            return httpx.Response(200, json=[{"id": "item-id"}])
+            return httpx.Response(
+                200,
+                json={"user_id": "user-id", "telegram_connected": True},
+            )
 
         async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.get_user_items("user-id")
+        async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+            response = await backend.consume_account_link(
+                token="link-token",
+                user=TelegramUserData(telegram_user_id="123", username="nick"),
+            )
 
-        self.assertEqual(response[0]["id"], "item-id")
-        self.assertEqual(str(requests[0].url), "http://backend/api/users/user-id/items")
-
-    async def test_create_deal_sends_payload(self):
-        requests: list[httpx.Request] = []
-        payload = {
-            "offer_id": "offer-id",
-            "item_id": "item-id",
-        }
-
-        async def handler(request: httpx.Request) -> httpx.Response:
-            requests.append(request)
-            return httpx.Response(201, json={"id": "deal-id", "status": "new"})
-
-        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.create_deal(payload)
-
-        self.assertEqual(response["id"], "deal-id")
-        self.assertEqual(str(requests[0].url), "http://backend/api/deals")
+        self.assertTrue(response["telegram_connected"])
         self.assertEqual(
-            requests[0].read(),
-            b'{"offer_id":"offer-id","item_id":"item-id"}',
+            str(requests[0].url),
+            "http://backend/api/internal/telegram/account-links/consume",
         )
+        self.assertIn(b'"token":"link-token"', requests[0].read())
 
-    async def test_get_user_deals_uses_user_endpoint(self):
-        requests: list[httpx.Request] = []
+    async def test_errors_are_mapped_to_domain_exceptions(self):
+        cases = [
+            (403, BackendUnauthorizedError),
+            (409, BackendConflictError),
+            (410, BackendLinkExpiredError),
+            (422, BackendValidationError),
+        ]
 
-        async def handler(request: httpx.Request) -> httpx.Response:
-            requests.append(request)
-            return httpx.Response(200, json=[{"id": "deal-id"}])
+        for status_code, expected_error in cases:
+            async def handler(request: httpx.Request, status_code=status_code) -> httpx.Response:
+                return httpx.Response(status_code, json={"detail": "error"})
 
-        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        async with BackendClient("http://backend", async_client) as backend:
-            response = await backend.get_user_deals("user-id")
-
-        self.assertEqual(response[0]["id"], "deal-id")
-        self.assertEqual(str(requests[0].url), "http://backend/api/users/user-id/deals")
+            async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+                with self.assertRaises(expected_error):
+                    await backend.resolve_user(TelegramUserData(telegram_user_id="123"))

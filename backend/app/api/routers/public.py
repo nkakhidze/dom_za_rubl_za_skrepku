@@ -20,7 +20,9 @@ def get_current_item(
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
-        select(Item).where(
+        select(Item)
+        .options(selectinload(Item.photos))
+        .where(
             Item.is_current.is_(True),
             Item.is_public.is_(True),
         )
@@ -45,6 +47,10 @@ def get_exchange_chain(
     rows = (
         db.execute(
             select(Deal, given_item, received_item)
+            .options(
+                selectinload(given_item.photos),
+                selectinload(received_item.photos),
+            )
             .join(given_item, Deal.given_item_id == given_item.id)
             .join(received_item, Deal.received_item_id == received_item.id)
             .where(
@@ -75,15 +81,27 @@ def get_exchange_chain(
                 id=deal_given_item.id,
                 title=deal_given_item.title,
                 description=deal_given_item.description,
-                photo_url=deal_given_item.photo_url,
+                photo_url=deal_given_item.photo_urls[0] if deal_given_item.photo_urls else None,
                 photo_urls=deal_given_item.photo_urls,
+                thumbnail_url=(
+                    deal_given_item.thumbnail_urls[0]
+                    if deal_given_item.thumbnail_urls
+                    else None
+                ),
+                thumbnail_urls=deal_given_item.thumbnail_urls,
             ),
             received_item=PublicExchangeChainDealItem(
                 id=deal_received_item.id,
                 title=deal_received_item.title,
                 description=deal_received_item.description,
-                photo_url=deal_received_item.photo_url,
+                photo_url=deal_received_item.photo_urls[0] if deal_received_item.photo_urls else None,
                 photo_urls=deal_received_item.photo_urls,
+                thumbnail_url=(
+                    deal_received_item.thumbnail_urls[0]
+                    if deal_received_item.thumbnail_urls
+                    else None
+                ),
+                thumbnail_urls=deal_received_item.thumbnail_urls,
             ),
         )
         for deal, deal_given_item, deal_received_item in rows

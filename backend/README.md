@@ -70,6 +70,54 @@ python -m venv .venv
 .\.venv\Scripts\activate
 ```
 
+## Регистрация, legal-документы и личный кабинет
+
+Юридические документы хранятся в `legal/`:
+
+- `legal/manifest.json` — активные редакции документов.
+- `legal/user-agreement/2026-06-28.md`
+- `legal/privacy-policy/2026-06-28.md`
+- `legal/personal-data-consent/2026-06-28.md`
+- `legal/public-data-consent/2026-06-28.md`
+- `legal/marketing-consent/2026-06-28.md`
+
+Новая редакция добавляется новым Markdown-файлом с датой версии. Старые файлы не удаляются и не перезаписываются; active version переключается только в `manifest.json`.
+
+Публичные legal endpoint'ы:
+
+- `GET /api/legal/documents`
+- `GET /api/legal/documents/{document_code}`
+- `GET /api/legal/documents/{document_code}/versions/{version}`
+
+Регистрация обычного пользователя:
+
+- `POST /api/auth/register`
+- телефон и email необязательны;
+- новый пользователь получает только роль `user`;
+- роль из request не принимается;
+- пароль хранится только как hash;
+- обязательны подтверждение 18+, Пользовательское соглашение и согласие на обработку персональных данных;
+- Политика обработки персональных данных фиксируется как версия ознакомления;
+- маркетинговые каналы `email`, `telegram`, `max` независимы и выключены по умолчанию.
+
+Личный кабинет:
+
+- frontend route: `/account`
+- backend: `GET /api/auth/account`
+- управление рассылками: `PATCH /api/auth/me/consents/marketing`
+
+Согласия фиксируются в таблице `user_consents`: `document_code`, `document_version`, `status`, `accepted_at`, `revoked_at`, `source`, `ip_address`, `user_agent`, `consent_payload`.
+
+Админский вход отделён от пользовательского:
+
+- пользовательский вход: `/login`
+- регистрация: `/register`
+- админский вход: `/admin/login`
+
+Telegram/MAX/site аккаунты пока не объединяются автоматически. Объединение должно идти только через подтверждённый сценарий связывания, не по `display_name` и не по неподтверждённому телефону.
+
+Подробнее: [docs/LEGAL_AND_CONSENTS.md](docs/LEGAL_AND_CONSENTS.md).
+
 Установить backend/dev зависимости:
 
 ```powershell
@@ -178,6 +226,13 @@ docker compose down -v
 - `PUBLIC_BASE_URL`
 - `UPLOAD_DIR`
 - `MAX_UPLOAD_SIZE_MB`
+- `IMAGE_MAX_FILE_SIZE_MB`
+- `IMAGE_MAX_DIMENSION`
+- `IMAGE_MAIN_MAX_SIZE`
+- `IMAGE_MAIN_QUALITY`
+- `IMAGE_THUMB_MAX_SIZE`
+- `IMAGE_THUMB_QUALITY`
+- `IMAGE_WEBP_METHOD`
 - `ADMIN_API_TOKEN`
 - `ALLOW_ADMIN_TOKEN_AUTH`
 - `JWT_SECRET_KEY`
@@ -199,6 +254,15 @@ Frontend переменная:
 Для Docker-запуска используйте [.env.docker.example](.env.docker.example), где `POSTGRES_HOST=db`, `BACKEND_API_URL=http://backend:8000`, а внешний frontend порт — `3000`.
 
 Настоящие секреты хранить только в `.env`. Не коммитить `.env`.
+
+## Загрузка изображений
+
+`POST /api/files/images` принимает JPEG, PNG и WebP до `IMAGE_MAX_FILE_SIZE_MB` МБ. Backend проверяет реальный формат через Pillow, исправляет EXIF-ориентацию, не хранит оригинал и создаёт два файла:
+
+- основное изображение `<uuid>.webp`, максимум `IMAGE_MAIN_MAX_SIZE` px по большей стороне, качество `IMAGE_MAIN_QUALITY`;
+- превью `<uuid>_thumb.webp`, максимум `IMAGE_THUMB_MAX_SIZE` px, качество `IMAGE_THUMB_QUALITY`.
+
+Response содержит `photo_url`/`image_url`, `thumbnail_url`, размеры и вес файлов. Старые записи без `thumbnail_url` продолжают отображаться через fallback на `photo_url`.
 
 ## База и миграции
 

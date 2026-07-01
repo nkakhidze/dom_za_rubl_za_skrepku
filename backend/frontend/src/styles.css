@@ -141,6 +141,15 @@ button:disabled {
   width: 100%;
 }
 
+.thumb-link {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
 .offer-card-body {
   padding: 16px;
 }
@@ -163,14 +172,6 @@ button:disabled {
   right: -15px;
   top: 50%;
   transform: translateY(-50%);
-}
-
-.chain-label {
-  color: #215c4b;
-  font-size: 14px;
-  font-weight: 800;
-  margin: 0;
-  text-transform: uppercase;
 }
 
 .exchange-meta {
@@ -253,6 +254,25 @@ button:disabled {
   gap: 18px;
 }
 
+.form-fieldset {
+  border: 0;
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.form-fieldset:disabled {
+  opacity: 0.68;
+}
+
+.form-fieldset:disabled input,
+.form-fieldset:disabled select,
+.form-fieldset:disabled textarea {
+  cursor: not-allowed;
+}
+
 .form-row {
   display: grid;
   gap: 16px;
@@ -297,6 +317,26 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+.selected-photo-list {
+  display: grid;
+  gap: 8px;
+}
+
+.selected-photo-row {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d9ded6;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.selected-photo-row span {
+  overflow-wrap: anywhere;
 }
 
 .secondary-button {
@@ -398,6 +438,7 @@ textarea {
 .photo-admin-item {
   display: grid;
   gap: 8px;
+  position: relative;
 }
 
 .photo-admin-item img,
@@ -413,6 +454,22 @@ textarea {
   border: 0;
   cursor: pointer;
   padding: 0;
+}
+
+.photo-delete-button {
+  align-items: center;
+  background: #9f2f2f;
+  border-radius: 999px;
+  bottom: 8px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 20px;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 8px;
+  width: 32px;
 }
 
 .item-story {
@@ -453,6 +510,7 @@ textarea {
 }
 
 .fullscreen-gallery img {
+  cursor: pointer;
   max-height: 90vh;
   max-width: 90vw;
   object-fit: contain;
@@ -537,6 +595,54 @@ h3 {
 .field-list dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.checkbox-line {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  line-height: 1.4;
+}
+
+.checkbox-line input {
+  flex: 0 0 auto;
+}
+
+.plain-fieldset {
+  border: 0px solid #dfe6dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.plain-fieldset legend {
+  font-weight: 700;
+  padding: 0 6px;
+}
+
+.legal-document {
+  max-width: 860px;
+}
+
+.legal-content {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.legal-content h2,
+.legal-content h3,
+.legal-content p {
+  margin: 0;
+}
+
+.plain-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 @media (max-width: 720px) {

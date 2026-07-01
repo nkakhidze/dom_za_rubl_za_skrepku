@@ -11,6 +11,10 @@ type ChainNode = {
   incomingDeal: PublicExchangeChainItem | null;
 };
 
+function getItemPreviewUrl(item: ChainNode["item"]) {
+  return item.thumbnail_urls[0] || item.thumbnail_url || item.photo_urls[0] || item.photo_url;
+}
+
 function formatDealDate(value: string | null) {
   if (!value) {
     return "дата не указана";
@@ -54,7 +58,7 @@ export function OffersPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const chainNodes = useMemo(() => buildChainNodes(deals), [deals]);
+  const chainNodes = useMemo(() => buildChainNodes(deals).reverse(), [deals]);
 
   if (isLoading) {
     return <p className="muted">Загружаем историю обменов...</p>;
@@ -71,7 +75,7 @@ export function OffersPage() {
           <h1>История обменов</h1>
         </div>
         <Link className="primary-link" to="/new-offer">
-          Подать оффер
+          Предложить обмен
         </Link>
       </div>
 
@@ -82,14 +86,15 @@ export function OffersPage() {
           {chainNodes.map((node, index) => (
             <article className="offer-card chain-node-card" key={`${node.item.id}-${index}`}>
               <div className="thumb exchange-thumb">
-                {node.item.photo_url ? (
-                  <img src={node.item.photo_url} alt={node.item.title} />
-                ) : (
-                  <span>Нет фото</span>
-                )}
+                <Link className="thumb-link" to={`/items/${node.item.id}`}>
+                  {getItemPreviewUrl(node.item) ? (
+                    <img src={getItemPreviewUrl(node.item) || ""} alt={node.item.title} />
+                  ) : (
+                    <span>Нет фото</span>
+                  )}
+                </Link>
               </div>
               <div className="offer-card-body">
-                <p className="chain-label">{node.incomingDeal ? "Получили" : "Старт"}</p>
                 <h2>
                   <Link to={`/items/${node.item.id}`}>{node.item.title}</Link>
                 </h2>

@@ -11,6 +11,8 @@ from app.api.routers import (
     deals,
     files,
     health,
+    internal_telegram,
+    legal,
     offers,
     public,
     items,
@@ -38,11 +40,13 @@ app.mount(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(internal_telegram.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(offers.router, prefix="/api")
 app.include_router(items.router, prefix="/api")
 app.include_router(deals.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
+app.include_router(legal.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(admin_offers.router, prefix="/api")
 app.include_router(admin_users.router, prefix="/api")

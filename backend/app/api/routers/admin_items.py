@@ -16,6 +16,7 @@ from app.schemas.item import (
     AdminItemResponse,
     AdminItemUpdateRequest,
 )
+from app.services.image_service import delete_uploaded_image_files
 
 router = APIRouter(
     prefix="/admin/items",
@@ -183,13 +184,28 @@ def add_item_photo(
             detail="Предмет не найден",
         )
 
+    had_existing_photos = bool(item.photos)
+    next_sort_order = request.sort_order
+    if next_sort_order == 0 and had_existing_photos:
+        max_sort_order = db.scalar(
+            select(func.max(ItemPhoto.sort_order)).where(ItemPhoto.item_id == item.id)
+        )
+        next_sort_order = (max_sort_order or 0) + 1
+
     photo = ItemPhoto(
         item_id=item.id,
         photo_url=request.photo_url,
-        sort_order=request.sort_order,
+        thumbnail_url=request.thumbnail_url,
+        width=request.width,
+        height=request.height,
+        thumbnail_width=request.thumbnail_width,
+        thumbnail_height=request.thumbnail_height,
+        size_bytes=request.size_bytes,
+        thumbnail_size_bytes=request.thumbnail_size_bytes,
+        sort_order=next_sort_order,
     )
 
-    if item.photo_url is None:
+    if not had_existing_photos:
         item.photo_url = request.photo_url
 
     db.add(photo)
@@ -222,5 +238,20 @@ def delete_item_photo(
             detail="Фото не найдено",
         )
 
+    photo_url = photo.photo_url
+    thumbnail_url = photo.thumbnail_url
     db.delete(photo)
+    db.flush()
+
+    first_photo_url = db.scalar(
+        select(ItemPhoto.photo_url)
+        .where(ItemPhoto.item_id == item_id)
+        .order_by(ItemPhoto.sort_order.asc(), ItemPhoto.created_at.asc())
+        .limit(1)
+    )
+    item = db.get(Item, item_id)
+    if item is not None:
+        item.photo_url = first_photo_url
+
     db.commit()
+    delete_uploaded_image_files(photo_url, thumbnail_url)

@@ -4,12 +4,16 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models.messenger_account import MessengerType
 from app.db.models.offer import Offer, OfferStatus, OfferVisibilityStatus
 from app.db.models.deal import Deal, DealStatus
 from app.db.models.item import Item, ItemStatus, OwnerType
+from app.db.models.item_photo import ItemPhoto
+from app.db.models.user_identity import IdentityProvider
 from app.schemas.offer import AdminOfferModerationUpdateRequest
-from app.services.telegram_notification_service import TelegramNotificationService
+from app.services.telegram_notification_service import (
+    TelegramNotificationEventService,
+    TelegramNotificationService,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +46,7 @@ class OfferModerationService:
         offer_id: UUID,
         request: AdminOfferModerationUpdateRequest,
     ) -> Offer:
+        offer_id = self._coerce_uuid(offer_id)
         offer = self.db.get(Offer, offer_id)
 
         if offer is None:
@@ -91,6 +96,7 @@ class OfferModerationService:
         photo_url: str | None = None,
         is_public: bool = True,
     ) -> Deal:
+        offer_id = self._coerce_uuid(offer_id)
         offer = self.db.get(Offer, offer_id)
 
         if offer is None:
@@ -116,6 +122,11 @@ class OfferModerationService:
 
         next_sequence_number = self._get_next_sequence_number()
 
+        item_photos = offer.photos
+        item_photo_urls = [photo.photo_url for photo in item_photos] or (
+            [photo_url] if photo_url else []
+        )
+
         resulting_item = Item(
             source_offer_id=offer.id,
             user_id=offer.user_id,
@@ -131,7 +142,7 @@ class OfferModerationService:
             is_current=True,
             is_public=True,
             public_story=public_story or offer.public_comment,
-            photo_url=photo_url,
+            photo_url=item_photo_urls[0] if item_photo_urls else None,
         )
 
         current_item.is_current = False
@@ -139,6 +150,31 @@ class OfferModerationService:
 
         self.db.add(resulting_item)
         self.db.flush()
+
+        if item_photos:
+            for index, offer_photo in enumerate(item_photos):
+                self.db.add(
+                    ItemPhoto(
+                        item_id=resulting_item.id,
+                        photo_url=offer_photo.photo_url,
+                        thumbnail_url=offer_photo.thumbnail_url,
+                        width=offer_photo.width,
+                        height=offer_photo.height,
+                        thumbnail_width=offer_photo.thumbnail_width,
+                        thumbnail_height=offer_photo.thumbnail_height,
+                        size_bytes=offer_photo.size_bytes,
+                        thumbnail_size_bytes=offer_photo.thumbnail_size_bytes,
+                        sort_order=index,
+                    )
+                )
+        elif photo_url:
+            self.db.add(
+                ItemPhoto(
+                    item_id=resulting_item.id,
+                    photo_url=photo_url,
+                    sort_order=0,
+                )
+            )
 
         deal = Deal(
             offer_id=offer.id,
@@ -160,6 +196,13 @@ class OfferModerationService:
         self.db.add(deal)
         self.db.commit()
         self.db.refresh(deal)
+        TelegramNotificationEventService(
+            self.db,
+            notification_service=self.notification_service,
+        ).send_chain_item_selected_once(
+            user_id=offer.user_id,
+            entity_id=offer.id,
+        )
 
         return deal
 
@@ -168,6 +211,7 @@ class OfferModerationService:
         offer_id: UUID,
         status: OfferStatus,
     ) -> Offer:
+        offer_id = self._coerce_uuid(offer_id)
         offer = self.db.get(Offer, offer_id)
 
         if offer is None:
@@ -207,6 +251,12 @@ class OfferModerationService:
         max_step_number = self.db.scalar(select(func.max(Deal.step_number))) or 0
         return max_step_number + 1
 
+    @staticmethod
+    def _coerce_uuid(value: UUID | str) -> UUID:
+        if isinstance(value, UUID):
+            return value
+        return UUID(str(value))
+
     def _notify_user_if_needed(
         self,
         offer: Offer,
@@ -243,8 +293,12 @@ class OfferModerationService:
         if offer.user is None:
             return None
 
+        for identity in offer.user.identities:
+            if identity.provider == IdentityProvider.TELEGRAM.value:
+                return identity.provider_user_id
+
         for account in offer.user.messenger_accounts:
-            if account.messenger_type == MessengerType.TELEGRAM.value:
+            if account.messenger_type == "telegram":
                 return account.external_user_id
 
         return None

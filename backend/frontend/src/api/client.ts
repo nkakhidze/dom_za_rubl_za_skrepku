@@ -10,6 +10,7 @@ export type PublicOffer = {
   public_value: number | null;
   public_comment: string | null;
   photo_urls: string[];
+  thumbnail_urls: string[];
   participant_public_name: string | null;
   status_label: string;
   created_at: string;
@@ -30,6 +31,8 @@ export type PublicExchangeChainItem = {
     description: string | null;
     photo_url: string | null;
     photo_urls: string[];
+    thumbnail_url: string | null;
+    thumbnail_urls: string[];
   };
   received_item: {
     id: string;
@@ -37,6 +40,8 @@ export type PublicExchangeChainItem = {
     description: string | null;
     photo_url: string | null;
     photo_urls: string[];
+    thumbnail_url: string | null;
+    thumbnail_urls: string[];
   };
 };
 
@@ -48,6 +53,7 @@ export type PublicItemDetail = {
   public_story: string | null;
   photo_url: string | null;
   photo_urls: string[];
+  thumbnail_urls: string[];
   vk_url: string | null;
   tiktok_url: string | null;
   youtube_url: string | null;
@@ -68,6 +74,13 @@ export type CreateOfferPayload = {
   city: string;
   declared_value: number;
   photo_urls: string[];
+  photo_thumbnail_urls?: Array<string | null>;
+  photo_widths?: Array<number | null>;
+  photo_heights?: Array<number | null>;
+  photo_thumbnail_widths?: Array<number | null>;
+  photo_thumbnail_heights?: Array<number | null>;
+  photo_size_bytes?: Array<number | null>;
+  photo_thumbnail_size_bytes?: Array<number | null>;
   exchange_preference: "any_offer" | "comparable_value_only";
   consent_accepted: boolean;
   participant_visible: boolean;
@@ -89,8 +102,17 @@ export type OfferLimitResponse = {
 export type CreateOfferResult = CreateOfferResponse | OfferLimitResponse;
 
 export type ImageUploadResponse = {
+  image_url: string;
   photo_url: string;
+  thumbnail_url: string;
   filename: string;
+  width: number;
+  height: number;
+  thumbnail_width: number;
+  thumbnail_height: number;
+  size_bytes: number;
+  thumbnail_size_bytes: number;
+  mime_type: string;
 };
 
 export type AdminOffer = {
@@ -104,6 +126,7 @@ export type AdminOffer = {
   moderated_value: number | null;
   public_value: number | null;
   photo_urls: string[];
+  thumbnail_urls: string[];
   exchange_preference: string;
   status: string;
   status_label: string;
@@ -129,6 +152,13 @@ export type AdminOfferPhoto = {
   id: string;
   offer_id: string;
   photo_url: string;
+  thumbnail_url: string | null;
+  width: number | null;
+  height: number | null;
+  thumbnail_width: number | null;
+  thumbnail_height: number | null;
+  size_bytes: number | null;
+  thumbnail_size_bytes: number | null;
   created_at: string;
 };
 
@@ -150,10 +180,18 @@ export type AdminItem = {
   public_story: string | null;
   photo_url: string | null;
   photo_urls: string[];
+  thumbnail_urls: string[];
   photos: Array<{
     id: string;
     item_id: string;
     photo_url: string;
+    thumbnail_url: string | null;
+    width: number | null;
+    height: number | null;
+    thumbnail_width: number | null;
+    thumbnail_height: number | null;
+    size_bytes: number | null;
+    thumbnail_size_bytes: number | null;
     sort_order: number;
     created_at: string;
   }>;
@@ -179,6 +217,13 @@ export type AdminItemCreatePayload = {
   is_public: boolean;
   public_story?: string | null;
   photo_url?: string | null;
+  thumbnail_url?: string | null;
+  width?: number | null;
+  height?: number | null;
+  thumbnail_width?: number | null;
+  thumbnail_height?: number | null;
+  size_bytes?: number | null;
+  thumbnail_size_bytes?: number | null;
   vk_url?: string | null;
   tiktok_url?: string | null;
   youtube_url?: string | null;
@@ -200,6 +245,24 @@ export type UserItem = {
   status: string;
   created_at: string;
   updated_at: string;
+};
+
+export type UserOffer = {
+  id: string;
+  title: string;
+  description: string;
+  offer_type: string;
+  city: string | null;
+  declared_value: number | null;
+  status: string;
+  status_label: string;
+  is_public: boolean;
+  public_comment: string | null;
+  participant_visible: boolean;
+  participant_public_name: string | null;
+  photo_urls: string[];
+  thumbnail_urls: string[];
+  created_at: string;
 };
 
 export type CreateItemPayload = {
@@ -322,6 +385,9 @@ export type AuthUser = {
   id: string;
   display_name: string | null;
   login: string | null;
+  phone: string | null;
+  phone_verified: boolean;
+  email: string | null;
   is_active: boolean;
   roles: string[];
 };
@@ -330,6 +396,73 @@ export type LoginResponse = {
   access_token: string;
   token_type: "bearer";
   user: AuthUser;
+};
+
+export type LegalDocumentListItem = {
+  code: string;
+  title: string;
+  version: string;
+  effective_from: string;
+  required: boolean;
+  revocable: boolean;
+  informational: boolean;
+};
+
+export type LegalDocumentDetail = LegalDocumentListItem & {
+  content: string;
+};
+
+export type RegisterPayload = {
+  login: string;
+  password: string;
+  password_confirmation: string;
+  display_name: string;
+  phone: string;
+  email?: string | null;
+  is_adult_confirmed: boolean;
+  user_agreement: {
+    accepted: boolean;
+    version: string;
+  };
+  personal_data_consent: {
+    accepted: boolean;
+    version: string;
+  };
+  privacy_policy_version: string;
+  marketing_consent: {
+    version: string;
+    email: boolean;
+    telegram: boolean;
+    max: boolean;
+  };
+};
+
+export type UserConsent = {
+  document_code: string;
+  document_version: string;
+  status: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  source: string;
+  consent_payload: Record<string, unknown>;
+};
+
+export type AccountResponse = AuthUser & {
+  created_at: string;
+  consents: UserConsent[];
+};
+
+export type AccountUpdatePayload = {
+  display_name: string;
+  phone?: string | null;
+  email?: string | null;
+};
+
+export type TelegramLinkStatus = {
+  status: string;
+  telegram_connected: boolean;
+  telegram_username: string | null;
+  deep_link: string | null;
 };
 
 const ADMIN_TOKEN_STORAGE_KEY = "paperclip_admin_token";
@@ -352,7 +485,7 @@ function adminHeaders() {
   const token = getAdminToken();
 
   if (!token) {
-    throw new Error("Нужно войти в админку");
+    throw new Error("Пожалуйста, зарегистрируйтесь");
   }
 
   return {
@@ -450,7 +583,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       const payload = await response.json();
 
       if (response.status === 401) {
-        message = "Нужно войти в админку";
+        message = "Пожалуйста, зарегистрируйтесь";
       } else if (response.status === 403) {
         message = "Недостаточно прав для этого действия";
       } else if (typeof payload.detail === "string") {
@@ -508,10 +641,13 @@ export function uploadImage(file: File): Promise<ImageUploadResponse> {
 }
 
 export function createOffer(payload: CreateOfferPayload): Promise<CreateOfferResult> {
+  const token = getAdminToken();
+
   return request<CreateOfferResult>("/api/offers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -527,11 +663,25 @@ export function loginAdmin(login: string, password: string): Promise<LoginRespon
   });
 }
 
+export function loginUser(login: string, password: string): Promise<LoginResponse> {
+  return loginAdmin(login, password);
+}
+
+export function registerUser(payload: RegisterPayload): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/auth/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getMe(): Promise<AuthUser> {
   const token = getAdminToken();
 
   if (!token) {
-    return Promise.reject(new Error("Нужно войти в админку"));
+    return Promise.reject(new Error("Пожалуйста, зарегистрируйтесь"));
   }
 
   return request<AuthUser>("/api/auth/me", {
@@ -539,6 +689,73 @@ export function getMe(): Promise<AuthUser> {
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export function getAccount(): Promise<AccountResponse> {
+  return request<AccountResponse>("/api/auth/account", {
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+    },
+  });
+}
+
+export function updateAccount(payload: AccountUpdatePayload): Promise<AccountResponse> {
+  return request<AccountResponse>("/api/auth/account", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getTelegramLinkStatus(): Promise<TelegramLinkStatus> {
+  return request<TelegramLinkStatus>("/api/auth/account/telegram", {
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+    },
+  });
+}
+
+export function createTelegramLink(): Promise<TelegramLinkStatus> {
+  return request<TelegramLinkStatus>("/api/auth/account/telegram/link", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+    },
+  });
+}
+
+export function updateMarketingConsent(payload: {
+  document_version: string;
+  email: boolean;
+  telegram: boolean;
+  max: boolean;
+}): Promise<UserConsent> {
+  return request<UserConsent>("/api/auth/me/consents/marketing", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getLegalDocuments(): Promise<LegalDocumentListItem[]> {
+  return request<LegalDocumentListItem[]>("/api/legal/documents");
+}
+
+export function getLegalDocument(documentCode: string): Promise<LegalDocumentDetail> {
+  return request<LegalDocumentDetail>(`/api/legal/documents/${documentCode}`);
+}
+
+export function getLegalDocumentVersion(
+  documentCode: string,
+  version: string,
+): Promise<LegalDocumentDetail> {
+  return request<LegalDocumentDetail>(`/api/legal/documents/${documentCode}/versions/${version}`);
 }
 
 export function getAdminOffers(): Promise<AdminOffer[]> {
@@ -637,7 +854,17 @@ export function updateAdminItem(
 
 export function addAdminItemPhoto(
   itemId: string,
-  payload: { photo_url: string; sort_order?: number },
+  payload: {
+    photo_url: string;
+    thumbnail_url?: string | null;
+    width?: number | null;
+    height?: number | null;
+    thumbnail_width?: number | null;
+    thumbnail_height?: number | null;
+    size_bytes?: number | null;
+    thumbnail_size_bytes?: number | null;
+    sort_order?: number;
+  },
 ): Promise<AdminItem["photos"][number]> {
   return request<AdminItem["photos"][number]>(`/api/admin/items/${itemId}/photos`, {
     method: "POST",
@@ -695,6 +922,14 @@ export function getUserItems(userId: string): Promise<UserItem[]> {
   return request<UserItem[]>(`/api/users/${userId}/items`);
 }
 
+export function getMyOffers(): Promise<UserOffer[]> {
+  return request<UserOffer[]>("/api/auth/me/offers", {
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+    },
+  });
+}
+
 export function createDeal(payload: { offer_id: string; item_id: string }): Promise<Deal> {
   return request<Deal>("/api/deals", {
     method: "POST",
@@ -707,6 +942,14 @@ export function createDeal(payload: { offer_id: string; item_id: string }): Prom
 
 export function getUserDeals(userId: string): Promise<UserDeal[]> {
   return request<UserDeal[]>(`/api/users/${userId}/deals`);
+}
+
+export function getMyDeals(): Promise<UserDeal[]> {
+  return request<UserDeal[]>("/api/auth/me/deals", {
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+    },
+  });
 }
 
 export function getAdminDeals(): Promise<AdminDealListItem[]> {

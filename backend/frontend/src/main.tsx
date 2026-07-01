@@ -3,12 +3,16 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 
 import { AuthUser, getAdminToken, getMe } from "./api/client";
+import { AccountPage } from "./pages/AccountPage";
+import { LegalDocumentPage } from "./pages/LegalDocumentPage";
 import { OfferDetailPage } from "./pages/OfferDetailPage";
 import { OffersPage } from "./pages/OffersPage";
 import { PublicItemPage } from "./pages/PublicItemPage";
 import { NewOfferPage } from "./pages/NewOfferPage";
 import { MyDealsPage } from "./pages/MyDealsPage";
 import { MyItemsPage } from "./pages/MyItemsPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { UserLoginPage } from "./pages/UserLoginPage";
 import { AdminDealDetailPage } from "./pages/admin/AdminDealDetailPage";
 import { AdminDealsPage } from "./pages/admin/AdminDealsPage";
 import { AdminItemsPage } from "./pages/admin/AdminItemsPage";
@@ -16,6 +20,7 @@ import { AdminLoginPage } from "./pages/admin/AdminLoginPage";
 import { AdminOfferDetailPage } from "./pages/admin/AdminOfferDetailPage";
 import { AdminOffersPage } from "./pages/admin/AdminOffersPage";
 import "./styles.css";
+
 
 function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -53,8 +58,8 @@ function App() {
         </Link>
         <nav>
           <Link to="/">История обменов</Link>
-          <Link to="/new-offer">Подать оффер</Link>
-          <Link to="/my/items">Мои предметы</Link>
+          <Link to="/new-offer">Предложить обмен</Link>
+          <Link to="/my/items">Мои предложения</Link>
           <Link to="/my/deals">Мои сделки</Link>
           {canSeeAdminLinks && (
             <>
@@ -63,7 +68,7 @@ function App() {
               <Link to="/admin/deals">Сделки</Link>
             </>
           )}
-          <Link to="/admin/login">Войти</Link>
+          {currentUser ? <Link to="/account">Личный кабинет</Link> : <Link to="/login">Войти</Link>}
         </nav>
       </header>
 
@@ -73,6 +78,10 @@ function App() {
           <Route path="/items/:itemId" element={<PublicItemPage />} />
           <Route path="/offers/:offerId" element={<OfferDetailPage />} />
           <Route path="/new-offer" element={<NewOfferPage />} />
+          <Route path="/login" element={<UserLoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/account" element={<AccountPage />} />
+          <Route path="/legal/:documentSlug" element={<LegalDocumentPage />} />
           <Route path="/my/items" element={<MyItemsPage />} />
           <Route path="/my/deals" element={<MyDealsPage />} />
           <Route path="/admin/offers" element={<AdminOffersPage />} />
@@ -86,6 +95,7 @@ function App() {
     </BrowserRouter>
   );
 }
+
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

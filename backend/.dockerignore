@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.production
+.venv
+__pycache__
+.pytest_cache
+uploads
+frontend/node_modules
+frontend/dist
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+*.pyc
+*.pyo
+*.sqlite3
+.git
+.idea

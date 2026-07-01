@@ -1,7 +1,9 @@
 from collections.abc import Generator
+from io import BytesIO
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -55,12 +57,16 @@ def client(tmp_path, monkeypatch) -> Generator[TestClient, None, None]:
 
 
 def upload_test_image(client: TestClient) -> str:
+    image_bytes = BytesIO()
+    Image.new("RGB", (24, 24), (20, 120, 90)).save(image_bytes, format="PNG")
+    image_bytes.seek(0)
+
     response = client.post(
         "/api/files/images",
         files={
             "file": (
                 "offer.png",
-                b"\x89PNG\r\n\x1a\nfake-test-image",
+                image_bytes.getvalue(),
                 "image/png",
             )
         },
@@ -69,7 +75,8 @@ def upload_test_image(client: TestClient) -> str:
     assert response.status_code == 201
     payload = response.json()
     assert payload["photo_url"]
-    assert payload["filename"].endswith(".png")
+    assert payload["thumbnail_url"]
+    assert payload["filename"].endswith(".webp")
 
     return payload["photo_url"]
 

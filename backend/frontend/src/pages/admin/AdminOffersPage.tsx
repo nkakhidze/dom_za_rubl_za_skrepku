@@ -184,8 +184,8 @@ export function AdminOffersPage() {
           {offers.map((offer) => (
             <article className="admin-row" key={offer.id}>
               <div className="admin-thumb">
-                {offer.photo_urls[0] ? (
-                  <img src={offer.photo_urls[0]} alt={offer.title} />
+                {(offer.thumbnail_urls[0] || offer.photo_urls[0]) ? (
+                  <img src={offer.thumbnail_urls[0] || offer.photo_urls[0]} alt={offer.title} />
                 ) : (
                   <span>Нет фото</span>
                 )}

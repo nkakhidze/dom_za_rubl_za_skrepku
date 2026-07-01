@@ -18,7 +18,14 @@ class Settings(BaseSettings):
 
     upload_dir: str = "uploads"
     public_base_url: str = "http://127.0.0.1:8000"
-    max_upload_size_mb: int = 5
+    max_upload_size_mb: int = 15
+    image_max_file_size_mb: int = 15
+    image_max_dimension: int = 10000
+    image_main_max_size: int = 1920
+    image_main_quality: int = 82
+    image_thumb_max_size: int = 640
+    image_thumb_quality: int = 78
+    image_webp_method: int = 4
     admin_api_token: str = "change_me"
     allow_admin_token_auth: bool = True
     allow_admin_token_fallback: bool | None = None
@@ -27,7 +34,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
     dev_mode: bool = False
     telegram_bot_token: str = "change_me"
+    telegram_bot_username: str | None = None
+    telegram_internal_api_token: str = "change_me"
     backend_api_url: str = "http://127.0.0.1:8000"
+    backend_base_url: str = "http://127.0.0.1:8000"
+    public_site_url: str = "http://localhost:5173"
     cors_origins: list[str] = [
         "http://127.0.0.1:3000",
         "http://localhost:3000",

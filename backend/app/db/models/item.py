@@ -122,3 +122,12 @@ class Item(Base):
             urls.append(self.photo_url)
 
         return urls
+
+    @property
+    def thumbnail_urls(self) -> list[str]:
+        urls = [photo.thumbnail_url or photo.photo_url for photo in self.photos]
+
+        if not urls and self.photo_url:
+            urls.append(self.photo_url)
+
+        return urls

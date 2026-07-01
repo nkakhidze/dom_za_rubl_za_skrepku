@@ -142,6 +142,7 @@ def get_user_deals(
         .where(
             or_(
                 Deal.given_item_id.in_(owned_item_ids),
+                Deal.received_item_id.in_(owned_item_ids),
                 Deal.offer_id.in_(owned_offer_ids),
             )
         )
@@ -152,7 +153,9 @@ def get_user_deals(
 
     for deal in db.scalars(query).all():
         offer = db.get(Offer, deal.offer_id) if deal.offer_id is not None else None
-        item = db.get(Item, deal.given_item_id)
+        given_item = db.get(Item, deal.given_item_id)
+        received_item = db.get(Item, deal.received_item_id)
+        item = received_item if received_item is not None and received_item.user_id == user_id else given_item
 
         if item is None:
             continue

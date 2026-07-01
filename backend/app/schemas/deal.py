@@ -65,6 +65,8 @@ class PublicExchangeChainDealItem(BaseModel):
     description: str | None
     photo_url: str | None
     photo_urls: list[str] = Field(default_factory=list)
+    thumbnail_url: str | None = None
+    thumbnail_urls: list[str] = Field(default_factory=list)
 
 
 class PublicExchangeChainItem(BaseModel):

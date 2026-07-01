@@ -20,7 +20,11 @@ class OfferService:
         self.db = db
         self.offer_limit_service = OfferLimitService()
 
-    def create_offer(self, request: OfferCreateRequest) -> Offer | OfferLimitResult:
+    def create_offer(
+        self,
+        request: OfferCreateRequest,
+        current_user: User | None = None,
+    ) -> Offer | OfferLimitResult:
         if not request.consent_accepted:
             raise ValueError("Для отправки предложения нужно принять условия участия")
 
@@ -30,7 +34,16 @@ class OfferService:
         if len(request.photo_urls) > 3:
             raise ValueError("Можно добавить не больше 3 фото")
 
-        user = self._get_or_create_user(request)
+        user = current_user or self._get_or_create_user(request)
+
+        if request.source_idempotency_key:
+            existing_offer = self.db.scalar(
+                select(Offer).where(
+                    Offer.source_idempotency_key == request.source_idempotency_key,
+                )
+            )
+            if existing_offer is not None:
+                return existing_offer
 
         total_user_offers = self._get_total_user_offers_count(user.id)
         today_user_offers = self._get_today_user_offers_count(user.id)
@@ -60,6 +73,7 @@ class OfferService:
             is_public=False,
             participant_visible=request.participant_visible,
             participant_public_name=request.participant_public_name,
+            source_idempotency_key=request.source_idempotency_key,
             consent_accepted=True,
             consent_accepted_at=now,
             consent_text_version=CONSENT_TEXT_VERSION,
@@ -70,11 +84,21 @@ class OfferService:
         self.db.add(offer)
         self.db.flush()
 
-        for photo_url in request.photo_urls:
+        for index, photo_url in enumerate(request.photo_urls):
             self.db.add(
                 OfferPhoto(
                     offer_id=offer.id,
                     photo_url=photo_url,
+                    thumbnail_url=self._list_value(request.photo_thumbnail_urls, index),
+                    width=self._list_value(request.photo_widths, index),
+                    height=self._list_value(request.photo_heights, index),
+                    thumbnail_width=self._list_value(request.photo_thumbnail_widths, index),
+                    thumbnail_height=self._list_value(request.photo_thumbnail_heights, index),
+                    size_bytes=self._list_value(request.photo_size_bytes, index),
+                    thumbnail_size_bytes=self._list_value(
+                        request.photo_thumbnail_size_bytes,
+                        index,
+                    ),
                 )
             )
 
@@ -134,6 +158,12 @@ class OfferService:
             return request.username
 
         return None
+
+    def _list_value(self, values: list, index: int):
+        if index >= len(values):
+            return None
+
+        return values[index]
 
     def _get_total_user_offers_count(self, user_id: UUID) -> int:
         return self.db.scalar(

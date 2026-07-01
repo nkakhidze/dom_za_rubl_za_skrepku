@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -64,6 +64,9 @@ class ContractStatus(str, Enum):
 
 class Offer(Base):
     __tablename__ = "offers"
+    __table_args__ = (
+        UniqueConstraint("source_idempotency_key", name="uq_offers_source_idempotency_key"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -118,6 +121,7 @@ class Offer(Base):
 
     participant_public_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     participant_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     consent_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     consent_accepted_at: Mapped[datetime | None] = mapped_column(
@@ -145,6 +149,10 @@ class Offer(Base):
     @property
     def photo_urls(self) -> list[str]:
         return [photo.photo_url for photo in self.photos]
+
+    @property
+    def thumbnail_urls(self) -> list[str]:
+        return [photo.thumbnail_url or photo.photo_url for photo in self.photos]
 
     @property
     def public_participant_name(self) -> str | None:

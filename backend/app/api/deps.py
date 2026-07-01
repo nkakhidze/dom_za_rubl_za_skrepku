@@ -46,6 +46,17 @@ def get_current_user(
     return _get_user_from_jwt_token(token, db)
 
 
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if credentials is None:
+        return None
+
+    token = _extract_bearer_token(credentials)
+    return _get_user_from_jwt_token(token, db)
+
+
 def _get_user_from_jwt_token(token: str, db: Session) -> User:
     payload = AuthService(db).decode_access_token(token)
 
@@ -126,4 +137,19 @@ def require_admin_access(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient role",
+        )
+
+
+def require_telegram_internal_access(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> None:
+    token = _extract_bearer_token(credentials)
+
+    if not settings.telegram_internal_api_token or not secrets.compare_digest(
+        token,
+        settings.telegram_internal_api_token,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid internal token",
         )

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,6 +28,13 @@ class OfferPhoto(Base):
     )
 
     photo_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    thumbnail_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    thumbnail_width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    thumbnail_height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    thumbnail_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     offer: Mapped["Offer"] = relationship(back_populates="photos")
 

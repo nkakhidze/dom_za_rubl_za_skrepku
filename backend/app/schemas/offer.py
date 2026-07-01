@@ -24,12 +24,20 @@ class OfferCreateRequest(BaseModel):
 
     declared_value: int | None = Field(default=None, ge=0)
     photo_urls: list[str] = Field(default_factory=list, max_length=3)
+    photo_thumbnail_urls: list[str | None] = Field(default_factory=list, max_length=3)
+    photo_widths: list[int | None] = Field(default_factory=list, max_length=3)
+    photo_heights: list[int | None] = Field(default_factory=list, max_length=3)
+    photo_thumbnail_widths: list[int | None] = Field(default_factory=list, max_length=3)
+    photo_thumbnail_heights: list[int | None] = Field(default_factory=list, max_length=3)
+    photo_size_bytes: list[int | None] = Field(default_factory=list, max_length=3)
+    photo_thumbnail_size_bytes: list[int | None] = Field(default_factory=list, max_length=3)
 
     exchange_preference: ExchangePreference = ExchangePreference.ANY_OFFER
 
     consent_accepted: bool
     participant_visible: bool = False
     participant_public_name: str | None = Field(default=None, max_length=255)
+    source_idempotency_key: str | None = Field(default=None, max_length=255)
 
     @field_validator("declared_value", mode="before")
     @classmethod
@@ -80,6 +88,7 @@ class PublicOfferListItem(BaseModel):
     public_comment: str | None
 
     photo_urls: list[str] = Field(default_factory=list)
+    thumbnail_urls: list[str] = Field(default_factory=list)
 
     participant_public_name: str | None = Field(
         default=None,
@@ -115,6 +124,7 @@ class UserOfferListItem(BaseModel):
     participant_public_name: str | None
 
     photo_urls: list[str] = Field(default_factory=list)
+    thumbnail_urls: list[str] = Field(default_factory=list)
 
     created_at: datetime
 
@@ -136,6 +146,7 @@ class AdminOfferListItem(BaseModel):
     public_value: int | None
 
     photo_urls: list[str] = []
+    thumbnail_urls: list[str] = []
 
     exchange_preference: str
     status: str
@@ -199,6 +210,13 @@ class AdminOfferPhotoResponse(BaseModel):
     id: UUID
     offer_id: UUID
     photo_url: str
+    thumbnail_url: str | None = None
+    width: int | None = None
+    height: int | None = None
+    thumbnail_width: int | None = None
+    thumbnail_height: int | None = None
+    size_bytes: int | None = None
+    thumbnail_size_bytes: int | None = None
     created_at: datetime
 
     class Config:
