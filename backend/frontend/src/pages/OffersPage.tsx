@@ -2,12 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
+  getPublicCurrentItem,
   getPublicExchangeChain,
+  PublicCurrentItem,
   PublicExchangeChainItem,
 } from "../api/client";
 
+type ChainItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  photo_url: string | null;
+  photo_urls: string[];
+  thumbnail_url: string | null;
+  thumbnail_urls: string[];
+};
+
 type ChainNode = {
-  item: PublicExchangeChainItem["given_item"];
+  item: ChainItem;
   incomingDeal: PublicExchangeChainItem | null;
 };
 
@@ -27,9 +39,33 @@ function formatDealDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function buildChainNodes(deals: PublicExchangeChainItem[]): ChainNode[] {
+function currentItemToChainItem(item: PublicCurrentItem): ChainItem {
+  const thumbnailUrl = item.thumbnail_urls[0] || item.photo_url;
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    photo_url: item.photo_url,
+    photo_urls: item.photo_url ? [item.photo_url] : [],
+    thumbnail_url: thumbnailUrl,
+    thumbnail_urls: item.thumbnail_urls.length > 0 ? item.thumbnail_urls : thumbnailUrl ? [thumbnailUrl] : [],
+  };
+}
+
+function buildChainNodes(
+  deals: PublicExchangeChainItem[],
+  currentItem: PublicCurrentItem | null,
+): ChainNode[] {
   if (deals.length === 0) {
-    return [];
+    return currentItem
+      ? [
+          {
+            item: currentItemToChainItem(currentItem),
+            incomingDeal: null,
+          },
+        ]
+      : [];
   }
 
   return [
@@ -46,19 +82,26 @@ function buildChainNodes(deals: PublicExchangeChainItem[]): ChainNode[] {
 
 export function OffersPage() {
   const [deals, setDeals] = useState<PublicExchangeChainItem[]>([]);
+  const [currentItem, setCurrentItem] = useState<PublicCurrentItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getPublicExchangeChain()
-      .then(setDeals)
+    Promise.all([
+      getPublicExchangeChain(),
+      getPublicCurrentItem().catch(() => null),
+    ])
+      .then(([loadedDeals, loadedCurrentItem]) => {
+        setDeals(loadedDeals);
+        setCurrentItem(loadedCurrentItem);
+      })
       .catch(() =>
         setError("Не удалось загрузить историю обменов. Попробуйте позже."),
       )
       .finally(() => setIsLoading(false));
   }, []);
 
-  const chainNodes = useMemo(() => buildChainNodes(deals).reverse(), [deals]);
+  const chainNodes = useMemo(() => buildChainNodes(deals, currentItem).reverse(), [deals, currentItem]);
 
   if (isLoading) {
     return <p className="muted">Загружаем историю обменов...</p>;

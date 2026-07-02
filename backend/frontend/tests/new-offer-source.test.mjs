@@ -28,7 +28,7 @@ test("new offer form has readable validation for all user fields", () => {
 
 test("new offer form requires login and supports removing selected photos", () => {
   assert.match(pageSource, /getAdminToken/);
-  assert.match(pageSource, /Предложения принимаются только от зарегистрированных пользователей/);
+  assert.match(pageSource, /Чтобы предложить обмен, пожалуйста, зарегистрируйтесь/);
   assert.match(pageSource, /to="\/login"/);
   assert.match(pageSource, /to="\/register"/);
   assert.match(pageSource, /function removeFile/);
