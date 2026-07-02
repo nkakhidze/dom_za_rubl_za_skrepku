@@ -15,9 +15,13 @@ class Settings(BaseSettings):
     postgres_db: str
 
     db_echo: bool = False
+    log_dir: str = "logs"
+    log_file_max_bytes: int = 10 * 1024 * 1024
+    log_file_backup_count: int = 4
+    log_to_console: bool = False
 
     upload_dir: str = "uploads"
-    public_base_url: str = "http://127.0.0.1:8000"
+    public_base_url: str = "https://tomsk-dom-za-skrepku.space"
     max_upload_size_mb: int = 15
     image_max_file_size_mb: int = 15
     image_max_dimension: int = 10000
@@ -36,10 +40,11 @@ class Settings(BaseSettings):
     telegram_bot_token: str = "change_me"
     telegram_bot_username: str | None = None
     telegram_internal_api_token: str = "change_me"
-    backend_api_url: str = "http://127.0.0.1:8000"
-    backend_base_url: str = "http://127.0.0.1:8000"
-    public_site_url: str = "http://localhost:5173"
+    backend_api_url: str = "https://tomsk-dom-za-skrepku.space"
+    backend_base_url: str = "https://tomsk-dom-za-skrepku.space"
+    public_site_url: str = "https://tomsk-dom-za-skrepku.space"
     cors_origins: list[str] = [
+        "https://tomsk-dom-za-skrepku.space",
         "http://127.0.0.1:3000",
         "http://localhost:3000",
         "http://127.0.0.1:5173",

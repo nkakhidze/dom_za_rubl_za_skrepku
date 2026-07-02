@@ -35,10 +35,9 @@ Telegram-бот находится в `bot`:
 - `/start`
 - `/new_offer`
 - `/my_offers`
-- `/new_item`
-- `/my_items`
-- `/respond <offer_id>`
-- `/my_deals`
+- `/start link_<token>`
+
+Бот не ведёт legacy-сценарий `/new_item`, `/respond` и `/my_deals`. Пользователь через сайт или бот подаёт `offer`, админ выбирает заявку следующим предметом цепочки, а backend после этого создаёт `item` и `deal`.
 
 ## Основные сущности
 
@@ -249,7 +248,7 @@ Frontend переменная:
 
 - `VITE_API_BASE_URL`
 
-`VITE_API_BASE_URL` нужно задавать в `frontend/.env`, пример есть в `frontend/.env.example`.
+Для боевого сайта `VITE_API_BASE_URL` должен указывать на `https://tomsk-dom-za-skrepku.space`. Для локальной разработки с локальным backend можно переопределить его в `frontend/.env`, пример есть в `frontend/.env.example`.
 
 Для Docker-запуска используйте [.env.docker.example](.env.docker.example), где `POSTGRES_HOST=db`, `BACKEND_API_URL=http://backend:8000`, а внешний frontend порт — `3000`.
 
@@ -332,7 +331,11 @@ python -m pip install -r requirements-bot.txt
 
 ```env
 TELEGRAM_BOT_TOKEN=change_me
-BACKEND_API_URL=http://127.0.0.1:8000
+TELEGRAM_BOT_USERNAME=change_me_bot
+TELEGRAM_INTERNAL_API_TOKEN=change_me
+BACKEND_API_URL=https://tomsk-dom-za-skrepku.space
+BACKEND_BASE_URL=https://tomsk-dom-za-skrepku.space
+PUBLIC_SITE_URL=https://tomsk-dom-za-skrepku.space
 ```
 
 Запуск:
@@ -344,6 +347,8 @@ python -m bot.main
 Backend может отправлять Telegram-уведомления через Bot API сам, если задан `TELEGRAM_BOT_TOKEN`. Но команды бота работают только при запущенном `python -m bot.main`.
 
 Если `TELEGRAM_BOT_TOKEN` пустой или оставлен как `change_me`, уведомления пропускаются, а модерация/смена статусов всё равно сохраняется.
+
+Для локального запуска бота против боевого сайта `TELEGRAM_INTERNAL_API_TOKEN` в локальном `.env` должен совпадать с токеном на сервере. `PUBLIC_SITE_URL` должен быть внешним HTTPS-адресом, потому что Telegram не принимает inline-кнопки на `localhost`. Если бот при `/start` пишет «Сервис временно недоступен», сначала проверьте, что `BACKEND_API_URL` и `BACKEND_BASE_URL` не указывают на `127.0.0.1`.
 
 ## Авторизация и роли
 

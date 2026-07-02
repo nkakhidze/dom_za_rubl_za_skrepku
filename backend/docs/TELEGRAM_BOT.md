@@ -11,6 +11,8 @@ Main bot scenarios:
 - `/my_offers` shows offers owned by the current Telegram user.
 - `/start link_<token>` links an existing site account with a Telegram account.
 
+The bot intentionally does not implement the legacy `/new_item`, `/respond`, or `/my_deals` flow. Users submit `offers`; admins select one offer as the next chain item; backend then creates the corresponding `item` and `deal`.
+
 ## Environment
 
 Backend and bot need the same internal token:
@@ -19,17 +21,26 @@ Backend and bot need the same internal token:
 TELEGRAM_BOT_TOKEN=change_me
 TELEGRAM_BOT_USERNAME=change_me_bot
 TELEGRAM_INTERNAL_API_TOKEN=change_me
-BACKEND_BASE_URL=http://127.0.0.1:8000
-PUBLIC_SITE_URL=http://localhost:5173
+BACKEND_BASE_URL=https://tomsk-dom-za-skrepku.space
+BACKEND_API_URL=https://tomsk-dom-za-skrepku.space
+PUBLIC_SITE_URL=https://tomsk-dom-za-skrepku.space
 ```
 
-For Docker, bot should use the backend service name:
+For Docker inside one Compose network, bot can use the backend service name:
 
 ```env
 BACKEND_BASE_URL=http://backend:8000
 ```
 
 `localhost` inside the bot container points to the bot container itself, not to backend.
+
+For local polling against the deployed site, use public HTTPS URLs:
+
+```env
+BACKEND_BASE_URL=https://tomsk-dom-za-skrepku.space
+BACKEND_API_URL=https://tomsk-dom-za-skrepku.space
+PUBLIC_SITE_URL=https://tomsk-dom-za-skrepku.space
+```
 
 ## Internal API
 

@@ -153,22 +153,27 @@ class TelegramBackendClient:
         headers = dict(kwargs.pop("headers", {}) or {})
         headers.setdefault("Authorization", f"Bearer {self.internal_token}")
         headers.setdefault("User-Agent", "paperclip-telegram-bot/1.0")
+        url = f"{self.base_url}{path}"
 
         try:
             response = await self.client.request(
                 method,
-                f"{self.base_url}{path}",
+                url,
                 headers=headers,
                 **kwargs,
             )
         except httpx.RequestError as exc:
-            raise BackendUnavailableError("Backend unavailable") from exc
+            raise BackendUnavailableError(
+                f"Backend unavailable: {method} {url}: {exc}"
+            ) from exc
 
         if response.is_success:
             return response.json()
 
         if response.status_code in {401, 403}:
-            raise BackendUnauthorizedError("Backend rejected internal token")
+            raise BackendUnauthorizedError(
+                f"Backend rejected internal token for {method} {path}"
+            )
         if response.status_code == 409:
             raise BackendConflictError(self._detail(response))
         if response.status_code == 410:
