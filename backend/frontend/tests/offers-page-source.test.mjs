@@ -8,13 +8,16 @@ const apiSource = readFileSync(new URL("../src/api/client.ts", import.meta.url),
 
 test("exchange history page uses public deals endpoint instead of public offers", () => {
   assert.match(pageSource, /getPublicExchangeChain/);
+  assert.match(pageSource, /getPublicCurrentItem/);
   assert.doesNotMatch(pageSource, /getPublicOffers/);
   assert.match(apiSource, /\/api\/public\/exchange-chain/);
+  assert.match(apiSource, /\/api\/public\/current-item/);
 });
 
 test("exchange history page renders a linked item chain instead of step cards", () => {
   assert.match(pageSource, /buildChainNodes/);
-  assert.match(pageSource, /buildChainNodes\(deals\)\.reverse\(\)/);
+  assert.match(pageSource, /buildChainNodes\(deals, currentItem\)\.reverse\(\)/);
+  assert.match(pageSource, /currentItemToChainItem/);
   assert.doesNotMatch(pageSource, /Старт/);
   assert.doesNotMatch(pageSource, /Получили/);
   assert.doesNotMatch(pageSource, /chain-label/);

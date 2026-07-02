@@ -19,6 +19,10 @@ from app.api.routers import (
     users,
 )
 from app.core.config import settings
+from app.core.logging import configure_access_log_filters
+
+
+configure_access_log_filters()
 
 app = FastAPI(
     title="Paperclip House API",

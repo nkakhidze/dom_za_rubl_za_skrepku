@@ -45,6 +45,16 @@ export type PublicExchangeChainItem = {
   };
 };
 
+export type PublicCurrentItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  item_type: string;
+  public_story: string | null;
+  photo_url: string | null;
+  thumbnail_urls: string[];
+};
+
 export type PublicItemDetail = {
   id: string;
   title: string;
@@ -620,6 +630,10 @@ export function getPublicOffers(): Promise<PublicOffer[]> {
 
 export function getPublicExchangeChain(): Promise<PublicExchangeChainItem[]> {
   return request<PublicExchangeChainItem[]>("/api/public/exchange-chain");
+}
+
+export function getPublicCurrentItem(): Promise<PublicCurrentItem> {
+  return request<PublicCurrentItem>("/api/public/current-item");
 }
 
 export function getPublicItemById(itemId: string): Promise<PublicItemDetail> {
