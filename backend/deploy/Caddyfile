@@ -1,0 +1,32 @@
+{
+	admin localhost:2019
+}
+
+{$PUBLIC_DOMAIN:tomsk-dom-za-skrepku.space} {
+	encode zstd gzip
+
+	request_body {
+		max_size {$CADDY_MAX_REQUEST_BODY:20MB}
+	}
+
+	log {
+		output file /var/log/caddy/paperclip-house-access.log {
+			roll_size 10MiB
+			roll_keep 4
+			roll_keep_for 168h
+		}
+		format console
+	}
+
+	handle /api/* {
+		reverse_proxy {$BACKEND_UPSTREAM:127.0.0.1:8000}
+	}
+
+	handle /uploads/* {
+		reverse_proxy {$BACKEND_UPSTREAM:127.0.0.1:8000}
+	}
+
+	handle {
+		reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:3000}
+	}
+}

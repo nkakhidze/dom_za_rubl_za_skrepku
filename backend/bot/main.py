@@ -23,6 +23,7 @@ try:
         BackendClientError,
         BackendConflictError,
         BackendLinkExpiredError,
+        BackendUnauthorizedError,
         BackendUnavailableError,
         TelegramBackendClient,
         TelegramUserData,
@@ -34,6 +35,7 @@ except ModuleNotFoundError:
         BackendClientError,
         BackendConflictError,
         BackendLinkExpiredError,
+        BackendUnauthorizedError,
         BackendUnavailableError,
         TelegramBackendClient,
         TelegramUserData,
@@ -46,7 +48,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 BTN_ABOUT = "🏠 О проекте"
-BTN_NEW_OFFER = "📎 Предложить предмет"
+BTN_NEW_OFFER = "📎 Предложить обмен"
 BTN_MY_OFFERS = "📋 Мои предложения"
 BTN_LINK_SITE = "🔗 Связать с сайтом"
 BTN_OPEN_SITE = "🌐 Открыть сайт"
@@ -135,7 +137,19 @@ async def show_menu(message: Message) -> None:
 async def start(message: Message, command: CommandObject):
     try:
         await resolve_user(message)
+    except BackendUnauthorizedError:
+        logger.exception("Backend rejected TELEGRAM_INTERNAL_API_TOKEN while resolving Telegram user")
+        await message.answer(texts.SERVICE_UNAVAILABLE)
+        return
+    except BackendUnavailableError:
+        logger.exception(
+            "Backend is unavailable while resolving Telegram user; backend_url=%s",
+            settings.backend_url,
+        )
+        await message.answer(texts.SERVICE_UNAVAILABLE)
+        return
     except (BackendClientError, ValueError):
+        logger.exception("Failed to resolve Telegram user")
         await message.answer(texts.SERVICE_UNAVAILABLE)
         return
 
@@ -396,6 +410,21 @@ async def main():
     if not settings.telegram_internal_api_token or settings.telegram_internal_api_token == "change_me":
         print("TELEGRAM_INTERNAL_API_TOKEN is not configured; Telegram bot service is idle.")
         return
+
+    logger.info(
+        "Telegram bot config: backend_url=%s public_site_url=%s bot_username=%s",
+        settings.backend_url,
+        settings.public_site_url,
+        settings.telegram_bot_username,
+    )
+    if urlparse(settings.backend_url).hostname in {"localhost", "127.0.0.1", "::1"}:
+        logger.warning(
+            "Bot BACKEND URL points to localhost. This works only if backend is running on this computer."
+        )
+    if not is_telegram_button_url(settings.public_site_url):
+        logger.warning(
+            "PUBLIC_SITE_URL is not an external HTTP(S) URL, so Telegram inline site buttons will be disabled."
+        )
 
     bot = Bot(token=settings.telegram_bot_token)
     dispatcher = Dispatcher(storage=MemoryStorage())

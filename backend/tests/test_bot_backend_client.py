@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import httpx
 
@@ -140,3 +141,33 @@ class TelegramBackendClientTestCase(unittest.IsolatedAsyncioTestCase):
             async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
                 with self.assertRaises(expected_error):
                     await backend.resolve_user(TelegramUserData(telegram_user_id="123"))
+
+
+class TelegramBotContractTestCase(unittest.TestCase):
+    def test_bot_does_not_expose_legacy_item_deal_commands(self):
+        root = Path(__file__).resolve().parents[1]
+        checked_sources = [
+            root / "bot" / "main.py",
+            root / "bot" / "backend_client.py",
+        ]
+        forbidden_commands = ["/new_item", "/respond", "/my_deals"]
+
+        for source_path in checked_sources:
+            source = source_path.read_text(encoding="utf-8")
+            for command in forbidden_commands:
+                self.assertNotIn(command, source, f"{command} leaked into {source_path}")
+
+    def test_readme_does_not_list_legacy_bot_commands_as_available(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "README.md").read_text(encoding="utf-8")
+
+        self.assertNotIn("- `/new_item`", source)
+        self.assertNotIn("- `/respond <offer_id>`", source)
+        self.assertNotIn("- `/my_deals`", source)
+
+    def test_bot_menu_uses_exchange_offer_language(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "bot" / "main.py").read_text(encoding="utf-8")
+
+        self.assertIn('BTN_NEW_OFFER = "📎 Предложить обмен"', source)
+        self.assertNotIn("Предложить предмет", source)
