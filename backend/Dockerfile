@@ -15,6 +15,7 @@ RUN python -m pip install --no-cache-dir -r requirements-bot.txt
 COPY alembic ./alembic
 COPY app ./app
 COPY bot ./bot
+COPY legal ./legal
 COPY scripts ./scripts
 COPY alembic.ini ./
 
