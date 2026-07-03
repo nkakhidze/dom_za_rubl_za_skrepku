@@ -132,6 +132,23 @@ def test_login_and_me_return_user_roles(client: TestClient):
     assert "admin" in response.json()["roles"]
 
 
+def test_super_admin_can_login_with_password_and_access_admin(client: TestClient):
+    create_auth_user_with_role(client, "adminkakhidze", RoleCode.SUPER_ADMIN.value)
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={"login": "adminkakhidze", "password": "password"},
+    )
+    assert login_response.status_code == 200
+    assert "super_admin" in login_response.json()["user"]["roles"]
+
+    admin_response = client.get(
+        "/api/admin/offers",
+        headers={"Authorization": f"Bearer {login_response.json()['access_token']}"},
+    )
+    assert admin_response.status_code == 200
+
+
 def test_admin_offers_requires_token(client: TestClient):
     response = client.get("/api/admin/offers")
 
