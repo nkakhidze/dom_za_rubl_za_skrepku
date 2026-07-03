@@ -26,6 +26,20 @@ class LoginResponse(BaseModel):
     user: AuthUserResponse
 
 
+class TelegramLoginStartResponse(BaseModel):
+    request_id: UUID
+    status: str = "pending"
+    deep_link: str | None = None
+    expires_at: datetime
+
+
+class TelegramLoginStatusResponse(BaseModel):
+    status: str
+    access_token: str | None = None
+    token_type: str = "bearer"
+    user: AuthUserResponse | None = None
+
+
 class RequiredConsentRequest(BaseModel):
     accepted: bool
     version: str = Field(min_length=1, max_length=50)

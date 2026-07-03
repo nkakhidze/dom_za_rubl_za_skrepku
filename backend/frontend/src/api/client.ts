@@ -475,6 +475,20 @@ export type TelegramLinkStatus = {
   deep_link: string | null;
 };
 
+export type TelegramLoginStartResponse = {
+  request_id: string;
+  status: "pending";
+  deep_link: string | null;
+  expires_at: string;
+};
+
+export type TelegramLoginStatusResponse = {
+  status: "pending" | "authenticated" | "expired";
+  access_token: string | null;
+  token_type: "bearer";
+  user: AuthUser | null;
+};
+
 const ADMIN_TOKEN_STORAGE_KEY = "paperclip_admin_token";
 
 export function getAdminToken(): string {
@@ -739,6 +753,16 @@ export function createTelegramLink(): Promise<TelegramLinkStatus> {
       Authorization: `Bearer ${getAdminToken()}`,
     },
   });
+}
+
+export function createTelegramLoginLink(): Promise<TelegramLoginStartResponse> {
+  return request<TelegramLoginStartResponse>("/api/auth/telegram/login-link", {
+    method: "POST",
+  });
+}
+
+export function getTelegramLoginStatus(requestId: string): Promise<TelegramLoginStatusResponse> {
+  return request<TelegramLoginStatusResponse>(`/api/auth/telegram/login-link/${requestId}`);
 }
 
 export function updateMarketingConsent(payload: {

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
@@ -17,6 +18,8 @@ from app.schemas.auth import (
     LoginResponse,
     MarketingConsentRequest,
     RegisterRequest,
+    TelegramLoginStartResponse,
+    TelegramLoginStatusResponse,
     UserConsentResponse,
 )
 from app.schemas.deal import UserDealListItem
@@ -105,6 +108,44 @@ def register(
     return LoginResponse(
         access_token=service.create_access_token(user),
         user=_auth_user_response(user, service),
+    )
+
+
+@router.post("/telegram/login-link", response_model=TelegramLoginStartResponse)
+def create_telegram_login_link(
+    db: Session = Depends(get_db),
+):
+    result = UserIdentityService(db).create_telegram_login_link()
+
+    return TelegramLoginStartResponse(
+        request_id=result.request_id,
+        deep_link=result.deep_link or None,
+        expires_at=result.expires_at,
+    )
+
+
+@router.get("/telegram/login-link/{request_id}", response_model=TelegramLoginStatusResponse)
+def telegram_login_status(
+    request_id: UUID,
+    db: Session = Depends(get_db),
+):
+    identity_service = UserIdentityService(db)
+    result = identity_service.get_telegram_login_status(request_id)
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Telegram login request not found",
+        )
+
+    if result.status != "authenticated" or result.user is None:
+        return TelegramLoginStatusResponse(status=result.status)
+
+    auth_service = AuthService(db)
+    return TelegramLoginStatusResponse(
+        status="authenticated",
+        access_token=auth_service.create_access_token(result.user),
+        user=_auth_user_response(result.user, auth_service),
     )
 
 

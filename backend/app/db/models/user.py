@@ -74,6 +74,7 @@ class User(Base):
     account_link_tokens: Mapped[list["AccountLinkToken"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+        foreign_keys="AccountLinkToken.user_id",
         lazy="selectin",
     )
 

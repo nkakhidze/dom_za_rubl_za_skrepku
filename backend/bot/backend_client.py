@@ -110,6 +110,22 @@ class TelegramBackendClient:
         )
         return response
 
+    async def consume_login_link(
+        self,
+        *,
+        token: str,
+        user: TelegramUserData,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/api/internal/telegram/login-links/consume",
+            json={
+                "token": token,
+                **self._telegram_user_payload(user),
+            },
+        )
+        return response
+
     async def create_offer(
         self,
         *,
