@@ -7,6 +7,7 @@ import {
   loginUser,
   setAdminToken,
 } from "../api/client";
+import { PasswordInput } from "../components/PasswordInput";
 
 
 export function UserLoginPage() {
@@ -155,8 +156,7 @@ export function UserLoginPage() {
         </label>
         <label>
           Пароль
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />

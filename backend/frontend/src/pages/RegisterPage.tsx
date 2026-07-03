@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "reac
 import { Link, useNavigate } from "react-router-dom";
 
 import { getLegalDocuments, LegalDocumentListItem, registerUser, setAdminToken } from "../api/client";
+import { PasswordInput } from "../components/PasswordInput";
 
 const CODE_TO_ROUTE: Record<string, string> = {
   user_agreement: "/legal/user-agreement",
@@ -140,16 +141,14 @@ export function RegisterPage() {
         </label>
         <label>
           Пароль *
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
         <label>
           Повторите пароль *
-          <input
-            type="password"
+          <PasswordInput
             value={passwordConfirmation}
             onChange={(event) => setPasswordConfirmation(event.target.value)}
           />

@@ -11,6 +11,7 @@ import {
   updateAccount,
   updateAccountPassword,
 } from "../api/client";
+import { PasswordInput } from "../components/PasswordInput";
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -276,24 +277,21 @@ export function AccountPage() {
           <form className="offer-form" onSubmit={submitPassword}>
             <label>
               Текущий пароль
-              <input
-                type="password"
+              <PasswordInput
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
               />
             </label>
             <label>
               Новый пароль
-              <input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
               />
             </label>
             <label>
               Повторите новый пароль
-              <input
-                type="password"
+              <PasswordInput
                 value={newPasswordConfirmation}
                 onChange={(event) => setNewPasswordConfirmation(event.target.value)}
               />

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { clearAdminToken, getMe, loginAdmin, setAdminToken, AuthUser } from "../../api/client";
+import { PasswordInput } from "../../components/PasswordInput";
 
 
 export function AdminLoginPage() {
@@ -58,8 +59,7 @@ export function AdminLoginPage() {
         </label>
         <label>
           Пароль
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
