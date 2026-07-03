@@ -28,20 +28,31 @@ test("registration page sends required consents and optional marketing channels"
   assert.match(registerPageSource, /marketingMax/);
 });
 
-test("api client supports legal documents, registration and account consent updates", () => {
+test("api client supports legal documents, registration and account updates", () => {
   assert.match(clientSource, /registerUser/);
   assert.match(clientSource, /getAccount/);
   assert.match(clientSource, /getLegalDocument/);
-  assert.match(clientSource, /updateMarketingConsent/);
+  assert.match(clientSource, /updateAccountPassword/);
   assert.match(clientSource, /\/api\/auth\/register/);
+  assert.match(clientSource, /\/api\/auth\/account\/password/);
   assert.match(clientSource, /\/api\/legal\/documents/);
 });
 
-test("account page updates marketing channels independently", () => {
+test("account page edits profile and password without legal documents block", () => {
   assert.match(accountPageSource, /updateAccount/);
+  assert.match(accountPageSource, /updateAccountPassword/);
   assert.match(accountPageSource, /Редактировать/);
-  assert.doesNotMatch(accountPageSource, /Согласия и документы/);
+  assert.match(accountPageSource, /Имя в профиле/);
+  assert.match(accountPageSource, /\{isEditing && \(/);
+  assert.match(accountPageSource, /Изменить пароль/);
   assert.doesNotMatch(accountPageSource, /updateMarketingConsent/);
+  assert.doesNotMatch(accountPageSource, /Согласия и документы/);
+});
+
+test("registration explains profile name separately from login and item public name", () => {
+  assert.match(registerPageSource, /Имя в профиле/);
+  assert.match(registerPageSource, /Это не логин и не публичное имя предмета/);
+  assert.doesNotMatch(registerPageSource, /Как к вам обращаться/);
 });
 
 test("legal page renders markdown without raw HTML injection", () => {

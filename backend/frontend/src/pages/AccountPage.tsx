@@ -9,6 +9,7 @@ import {
   getAccount,
   getTelegramLinkStatus,
   updateAccount,
+  updateAccountPassword,
 } from "../api/client";
 
 export function AccountPage() {
@@ -17,12 +18,22 @@ export function AccountPage() {
   const [displayName, setDisplayName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [telegramStatus, setTelegramStatus] = useState<TelegramLinkStatus | null>(null);
   const [isLinkingTelegram, setIsLinkingTelegram] = useState(false);
+
+  function resetPasswordFields() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setNewPasswordConfirmation("");
+  }
 
   useEffect(() => {
     getAccount()
@@ -70,11 +81,35 @@ export function AccountPage() {
       setPhone(updated.phone || "");
       setEmail(updated.email || "");
       setIsEditing(false);
+      resetPasswordFields();
       setNotice("Профиль сохранён.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Не удалось сохранить профиль.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function submitPassword(event: FormEvent) {
+    event.preventDefault();
+    setIsChangingPassword(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await updateAccountPassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: newPasswordConfirmation,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setNewPasswordConfirmation("");
+      setNotice("Пароль изменён.");
+    } catch (passwordError) {
+      setError(passwordError instanceof Error ? passwordError.message : "Не удалось изменить пароль.");
+    } finally {
+      setIsChangingPassword(false);
     }
   }
 
@@ -161,7 +196,12 @@ export function AccountPage() {
 
       <section className="card">
         <div className="section-heading compact-heading">
-          <h2>Профиль</h2>
+          <div>
+            <h2>Профиль</h2>
+            <p className="muted">
+              Имя в профиле видно вам и администраторам. Логин и публичное имя предмета задаются отдельно.
+            </p>
+          </div>
           {!isEditing && (
             <button className="secondary-button" type="button" onClick={() => setIsEditing(true)}>
               Редактировать
@@ -172,7 +212,7 @@ export function AccountPage() {
         {isEditing ? (
           <form className="offer-form" onSubmit={submit}>
             <label>
-              Как к вам обращаться?
+              Имя в профиле
               <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
             </label>
             <label>
@@ -194,6 +234,7 @@ export function AccountPage() {
                   setDisplayName(account.display_name || "");
                   setPhone(account.phone || "");
                   setEmail(account.email || "");
+                  resetPasswordFields();
                   setIsEditing(false);
                 }}
               >
@@ -204,7 +245,7 @@ export function AccountPage() {
         ) : (
           <dl className="field-list">
             <div>
-              <dt>Имя</dt>
+              <dt>Имя в профиле</dt>
               <dd>{account.display_name || "-"}</dd>
             </div>
             <div>
@@ -228,6 +269,43 @@ export function AccountPage() {
           </dl>
         )}
       </section>
+
+      {isEditing && (
+        <section className="card">
+          <h2>Пароль</h2>
+          <form className="offer-form" onSubmit={submitPassword}>
+            <label>
+              Текущий пароль
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+            </label>
+            <label>
+              Новый пароль
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </label>
+            <label>
+              Повторите новый пароль
+              <input
+                type="password"
+                value={newPasswordConfirmation}
+                onChange={(event) => setNewPasswordConfirmation(event.target.value)}
+              />
+            </label>
+            <div className="actions">
+              <button type="submit" disabled={isChangingPassword}>
+                Изменить пароль
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>Связанные аккаунты</h2>

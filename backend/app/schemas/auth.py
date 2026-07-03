@@ -91,6 +91,16 @@ class AccountUpdateRequest(BaseModel):
     email: str | None = Field(default=None, max_length=255)
 
 
+class AccountPasswordUpdateRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+    new_password_confirmation: str = Field(min_length=8)
+
+
+class AccountPasswordUpdateResponse(BaseModel):
+    status: str = "password_updated"
+
+
 class RoleUpdateRequest(BaseModel):
     role: str = Field(min_length=1, max_length=50)
 

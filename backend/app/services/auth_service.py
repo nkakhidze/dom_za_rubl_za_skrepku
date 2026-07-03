@@ -407,6 +407,31 @@ class AuthService:
         self.db.refresh(user)
         return user
 
+    def change_password(
+        self,
+        user: User,
+        *,
+        current_password: str,
+        new_password: str,
+        new_password_confirmation: str,
+    ) -> None:
+        auth_account = next(
+            (account for account in user.auth_accounts if account.is_active),
+            None,
+        )
+
+        if auth_account is None:
+            raise ValueError("Для этого аккаунта не настроен вход по паролю")
+
+        if not self.verify_password(current_password, auth_account.password_hash):
+            raise ValueError("Текущий пароль указан неверно")
+
+        if new_password != new_password_confirmation:
+            raise ValueError("Новые пароли не совпадают")
+
+        auth_account.password_hash = self.hash_password(new_password)
+        self.db.commit()
+
     def update_marketing_consent(
         self,
         user: User,

@@ -118,7 +118,7 @@ export function RegisterPage() {
     <section className="form-section">
       <h1>Регистрация</h1>
       <p className="muted">
-        Обещаем по телефону беспокоить только насчёт обмена.
+        Обещаем по телефону беспокоить только по делу: если понадобится связаться насчёт обмена.
       </p>
       {error && (
         <p className="notice error" ref={errorRef} tabIndex={-1}>
@@ -128,8 +128,11 @@ export function RegisterPage() {
 
       <form className="offer-form" onSubmit={submit}>
         <label>
-          Как к вам обращаться? *
+          Имя в профиле *
           <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          <span className="field-help">
+            Это не логин и не публичное имя предмета. Имя в профиле видно вам и администраторам.
+          </span>
         </label>
         <label>
           Логин *
