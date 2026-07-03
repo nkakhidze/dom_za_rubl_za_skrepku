@@ -12,6 +12,8 @@ from app.db.models.offer import Offer
 from app.db.models.user import User
 from app.schemas.auth import (
     AccountResponse,
+    AccountPasswordUpdateRequest,
+    AccountPasswordUpdateResponse,
     AccountUpdateRequest,
     AuthUserResponse,
     LoginRequest,
@@ -200,6 +202,30 @@ def update_account(
         created_at=current_user.created_at,
         consents=[_consent_response(consent) for consent in current_user.consents],
     )
+
+
+@router.patch("/account/password", response_model=AccountPasswordUpdateResponse)
+def update_account_password(
+    request: AccountPasswordUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    service = AuthService(db)
+
+    try:
+        service.change_password(
+            current_user,
+            current_password=request.current_password,
+            new_password=request.new_password,
+            new_password_confirmation=request.new_password_confirmation,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return AccountPasswordUpdateResponse()
 
 
 @router.get("/account/telegram", response_model=TelegramLinkResponse)

@@ -8,10 +8,24 @@ from app.db.models.auth import AuthAccount, RoleCode
 from app.services.auth_service import AuthService
 
 
+STAFF_ROLES = {
+    RoleCode.SUPER_ADMIN.value,
+    RoleCode.ADMIN.value,
+    RoleCode.EDITOR.value,
+    RoleCode.MODERATOR.value,
+}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--login", default=os.environ.get("INITIAL_ADMIN_LOGIN"))
     parser.add_argument("--password", default=os.environ.get("INITIAL_ADMIN_PASSWORD"))
+    parser.add_argument(
+        "--role",
+        default=RoleCode.SUPER_ADMIN.value,
+        choices=sorted(STAFF_ROLES),
+        help="Role to ensure for the auth user.",
+    )
     parser.add_argument(
         "--reset-password",
         action="store_true",
@@ -43,11 +57,11 @@ def main() -> None:
             if args.reset_password:
                 existing_auth.password_hash = service.hash_password(args.password)
 
-        if RoleCode.SUPER_ADMIN.value not in service.get_user_roles(user):
-            service.assign_role(user.id, RoleCode.SUPER_ADMIN.value, assigned_by_user_id=None)
+        if args.role not in service.get_user_roles(user):
+            service.assign_role(user.id, args.role, assigned_by_user_id=None)
 
         db.commit()
-        print(f"super_admin ready: {login}")
+        print(f"{args.role} ready: {login}")
     finally:
         db.close()
 

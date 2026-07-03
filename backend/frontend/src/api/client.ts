@@ -468,6 +468,12 @@ export type AccountUpdatePayload = {
   email?: string | null;
 };
 
+export type AccountPasswordUpdatePayload = {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+};
+
 export type TelegramLinkStatus = {
   status: string;
   telegram_connected: boolean;
@@ -729,6 +735,17 @@ export function getAccount(): Promise<AccountResponse> {
 
 export function updateAccount(payload: AccountUpdatePayload): Promise<AccountResponse> {
   return request<AccountResponse>("/api/auth/account", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${getAdminToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAccountPassword(payload: AccountPasswordUpdatePayload): Promise<{ status: string }> {
+  return request<{ status: string }>("/api/auth/account/password", {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${getAdminToken()}`,

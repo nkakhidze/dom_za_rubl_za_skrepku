@@ -280,6 +280,54 @@ def test_account_profile_can_be_updated(client):
     assert response.json()["email"] == "user@example.com"
 
 
+def test_account_password_can_be_changed(client):
+    register = client.post("/api/auth/register", json=_registration_payload(login="password-user"))
+    token = register.json()["access_token"]
+
+    response = client.patch(
+        "/api/auth/account/password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "current_password": "strong-password",
+            "new_password": "new-strong-password",
+            "new_password_confirmation": "new-strong-password",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "password_updated"
+
+    old_login = client.post(
+        "/api/auth/login",
+        json={"login": "password-user", "password": "strong-password"},
+    )
+    new_login = client.post(
+        "/api/auth/login",
+        json={"login": "password-user", "password": "new-strong-password"},
+    )
+
+    assert old_login.status_code == 401
+    assert new_login.status_code == 200
+
+
+def test_account_password_change_requires_current_password(client):
+    register = client.post("/api/auth/register", json=_registration_payload(login="password-guard"))
+    token = register.json()["access_token"]
+
+    response = client.patch(
+        "/api/auth/account/password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "current_password": "wrong-password",
+            "new_password": "new-strong-password",
+            "new_password_confirmation": "new-strong-password",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Текущий пароль указан неверно"
+
+
 def test_my_offers_uses_current_user_from_jwt(client):
     first_register = client.post("/api/auth/register", json=_registration_payload(login="owner-one"))
     second_register = client.post("/api/auth/register", json=_registration_payload(login="owner-two"))

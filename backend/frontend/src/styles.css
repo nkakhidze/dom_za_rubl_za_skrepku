@@ -621,6 +621,14 @@ h3 {
   padding: 0 6px;
 }
 
+.field-help {
+  color: #697267;
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin-top: 6px;
+}
+
 .legal-document {
   max-width: 860px;
 }
