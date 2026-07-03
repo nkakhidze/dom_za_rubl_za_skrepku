@@ -12,6 +12,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--login", default=os.environ.get("INITIAL_ADMIN_LOGIN"))
     parser.add_argument("--password", default=os.environ.get("INITIAL_ADMIN_PASSWORD"))
+    parser.add_argument(
+        "--reset-password",
+        action="store_true",
+        help="Reset password for an existing auth account.",
+    )
     args = parser.parse_args()
 
     if not args.login or not args.password:
@@ -22,21 +27,27 @@ def main() -> None:
     try:
         service = AuthService(db)
         service.ensure_initial_roles()
-        existing_auth = db.scalar(select(AuthAccount).where(AuthAccount.login == args.login))
+        login = service.normalize_login(args.login)
+        existing_auth = db.scalar(select(AuthAccount).where(AuthAccount.login == login))
 
         if existing_auth is None:
             user = service.create_auth_user(
-                login=args.login,
+                login=login,
                 password=args.password,
-                display_name=args.login,
+                display_name=login,
             )
         else:
             user = existing_auth.user
+            user.is_active = True
+            existing_auth.is_active = True
+            if args.reset_password:
+                existing_auth.password_hash = service.hash_password(args.password)
 
         if RoleCode.SUPER_ADMIN.value not in service.get_user_roles(user):
             service.assign_role(user.id, RoleCode.SUPER_ADMIN.value, assigned_by_user_id=None)
 
-        print(f"super_admin ready: {args.login}")
+        db.commit()
+        print(f"super_admin ready: {login}")
     finally:
         db.close()
 
