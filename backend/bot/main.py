@@ -157,6 +157,9 @@ async def start(message: Message, command: CommandObject):
     if args.startswith("link_"):
         await consume_link(message, args.removeprefix("link_"))
         return
+    if args.startswith("login_"):
+        await consume_login(message, args.removeprefix("login_"))
+        return
 
     await message.answer(
         "Привет! Я помогу предложить предмет для проекта «Дом за рубль за скрепку».",
@@ -211,6 +214,23 @@ async def consume_link(message: Message, token: str) -> None:
         return
 
     await message.answer(texts.LINK_SUCCESS, reply_markup=main_keyboard())
+
+
+async def consume_login(message: Message, token: str) -> None:
+    try:
+        async with backend_client() as backend:
+            await backend.consume_login_link(
+                token=token,
+                user=user_data_from_message(message),
+            )
+    except BackendLinkExpiredError:
+        await message.answer(texts.LINK_EXPIRED, reply_markup=main_keyboard())
+        return
+    except BackendClientError:
+        await message.answer(texts.SERVICE_UNAVAILABLE, reply_markup=main_keyboard())
+        return
+
+    await message.answer(texts.LOGIN_SUCCESS, reply_markup=main_keyboard())
 
 
 @router.message(F.text == BTN_MY_OFFERS)

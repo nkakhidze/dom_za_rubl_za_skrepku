@@ -16,6 +16,13 @@ from app.db.models.item import Item, ItemStatus, ItemType, OwnerType
 from app.db.models.offer import ExchangePreference, Offer, OfferStatus, OfferType
 from app.db.models.user_consent import UserConsent
 from app.main import app
+from app.services.legal_document_service import LegalDocumentService
+
+
+def _legal_version(code: str) -> str:
+    document = LegalDocumentService().get_active_document(code)
+    assert document is not None
+    return document.version
 
 
 @pytest.fixture()
@@ -64,15 +71,15 @@ def _registration_payload(**overrides):
         "is_adult_confirmed": True,
         "user_agreement": {
             "accepted": True,
-            "version": "2026-06-28",
+            "version": _legal_version("user_agreement"),
         },
         "personal_data_consent": {
             "accepted": True,
-            "version": "2026-06-28",
+            "version": _legal_version("personal_data_consent"),
         },
-        "privacy_policy_version": "2026-06-28",
+        "privacy_policy_version": _legal_version("privacy_policy"),
         "marketing_consent": {
-            "version": "2026-06-28",
+            "version": _legal_version("marketing_consent"),
             "email": False,
             "telegram": False,
             "max": False,
@@ -127,7 +134,7 @@ def test_registration_requires_phone(client):
 
 
 def test_registration_rejects_empty_normalized_phone(client):
-    response = client.post("/api/auth/register", json=_registration_payload(phone="---"))
+    response = client.post("/api/auth/register", json=_registration_payload(phone="------"))
 
     assert response.status_code == 400
 
@@ -145,7 +152,7 @@ def test_registration_requires_user_agreement(client):
     payload = _registration_payload(
         user_agreement={
             "accepted": False,
-            "version": "2026-06-28",
+            "version": _legal_version("user_agreement"),
         },
     )
 
@@ -192,7 +199,7 @@ def test_marketing_channels_can_be_changed_independently(client):
         "/api/auth/me/consents/marketing",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "document_version": "2026-06-28",
+            "document_version": _legal_version("marketing_consent"),
             "email": True,
             "telegram": False,
             "max": False,
@@ -239,7 +246,16 @@ def test_registration_stores_hash_and_consent_history(client):
 
     assert auth_account.password_hash != "strong-password"
     assert len(consents) >= 4
-    assert all(consent.document_version == "2026-06-28" for consent in consents)
+    expected_versions = {
+        "user_agreement": _legal_version("user_agreement"),
+        "personal_data_consent": _legal_version("personal_data_consent"),
+        "privacy_policy": _legal_version("privacy_policy"),
+        "marketing_consent": _legal_version("marketing_consent"),
+    }
+    assert all(
+        consent.document_version == expected_versions[consent.document_code]
+        for consent in consents
+    )
     assert all(consent.source == "web" for consent in consents)
 
 

@@ -6,6 +6,7 @@ const clientSource = readFileSync(new URL("../src/api/client.ts", import.meta.ur
 const mainSource = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
 const registerPageSource = readFileSync(new URL("../src/pages/RegisterPage.tsx", import.meta.url), "utf8");
 const accountPageSource = readFileSync(new URL("../src/pages/AccountPage.tsx", import.meta.url), "utf8");
+const userLoginPageSource = readFileSync(new URL("../src/pages/UserLoginPage.tsx", import.meta.url), "utf8");
 const legalPageSource = readFileSync(new URL("../src/pages/LegalDocumentPage.tsx", import.meta.url), "utf8");
 const myItemsPageSource = readFileSync(new URL("../src/pages/MyItemsPage.tsx", import.meta.url), "utf8");
 const myDealsPageSource = readFileSync(new URL("../src/pages/MyDealsPage.tsx", import.meta.url), "utf8");
@@ -64,6 +65,17 @@ test("offer creation uses current auth token when user is logged in", () => {
   assert.match(clientSource, /export function createOffer/);
   assert.match(clientSource, /const token = getAdminToken\(\)/);
   assert.match(clientSource, /Authorization: `Bearer \$\{token\}`/);
+});
+
+test("user login page starts real telegram login flow", () => {
+  assert.match(clientSource, /createTelegramLoginLink/);
+  assert.match(clientSource, /getTelegramLoginStatus/);
+  assert.match(clientSource, /\/api\/auth\/telegram\/login-link/);
+  assert.match(userLoginPageSource, /createTelegramLoginLink/);
+  assert.match(userLoginPageSource, /getTelegramLoginStatus/);
+  assert.match(userLoginPageSource, /У меня уже есть аккаунт сайта/);
+  assert.match(userLoginPageSource, /Продолжить через Telegram/);
+  assert.doesNotMatch(userLoginPageSource, /showAuthStub\("Telegram"\)/);
 });
 
 test("navigation uses proposal wording", () => {

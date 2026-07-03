@@ -94,6 +94,26 @@ def consume_account_link(
     )
 
 
+@router.post("/login-links/consume", response_model=TelegramConsumeLinkResponse)
+def consume_login_link(
+    request: TelegramConsumeLinkRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = UserIdentityService(db).consume_telegram_login_link(
+            request.token,
+            _payload_from_request(request),
+        )
+    except AccountLinkError as exc:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc)) from exc
+
+    return TelegramConsumeLinkResponse(
+        user_id=result.user.id,
+        merged_user_id=None,
+        already_linked=False,
+    )
+
+
 @router.post(
     "/offers",
     response_model=TelegramOfferCreateResponse,

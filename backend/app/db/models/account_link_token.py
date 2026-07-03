@@ -24,14 +24,24 @@ class AccountLinkToken(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id"),
-        nullable=False,
+        nullable=True,
     )
-    user: Mapped["User"] = relationship(back_populates="account_link_tokens")
+    user: Mapped["User"] = relationship(
+        back_populates="account_link_tokens",
+        foreign_keys=[user_id],
+    )
+
+    authenticated_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+    )
 
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(50), nullable=False, default="account_link")
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

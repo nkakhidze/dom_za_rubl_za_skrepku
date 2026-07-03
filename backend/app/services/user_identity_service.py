@@ -58,6 +58,25 @@ class AccountLinkResult:
     already_linked: bool = False
 
 
+@dataclass(frozen=True)
+class TelegramLoginLinkResult:
+    request_id: UUID
+    deep_link: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class TelegramLoginConsumeResult:
+    user: User
+    identity: UserIdentity
+
+
+@dataclass(frozen=True)
+class TelegramLoginStatusResult:
+    status: str
+    user: User | None = None
+
+
 class AccountLinkError(ValueError):
     pass
 
@@ -68,6 +87,8 @@ class AccountLinkConflictError(AccountLinkError):
 
 class UserIdentityService:
     LINK_TOKEN_TTL_MINUTES = 15
+    PURPOSE_ACCOUNT_LINK = "account_link"
+    PURPOSE_TELEGRAM_LOGIN = "telegram_login"
 
     def __init__(self, db: Session):
         self.db = db
@@ -140,6 +161,7 @@ class UserIdentityService:
         link_token = AccountLinkToken(
             user_id=user.id,
             provider=IdentityProvider.TELEGRAM.value,
+            purpose=self.PURPOSE_ACCOUNT_LINK,
             token_hash=hash_link_token(raw_token),
             expires_at=utc_now() + timedelta(minutes=self.LINK_TOKEN_TTL_MINUTES),
         )
@@ -170,6 +192,7 @@ class UserIdentityService:
         token = self.db.scalar(
             select(AccountLinkToken).where(
                 AccountLinkToken.provider == IdentityProvider.TELEGRAM.value,
+                AccountLinkToken.purpose == self.PURPOSE_ACCOUNT_LINK,
                 AccountLinkToken.token_hash == hash_link_token(raw_token),
             )
         )
@@ -208,6 +231,82 @@ class UserIdentityService:
         self.db.commit()
         self.db.refresh(site_user)
         return AccountLinkResult(site_user, identity, telegram_user.id)
+
+    def create_telegram_login_link(self) -> TelegramLoginLinkResult:
+        raw_token = secrets.token_urlsafe(32)
+        link_token = AccountLinkToken(
+            user_id=None,
+            provider=IdentityProvider.TELEGRAM.value,
+            purpose=self.PURPOSE_TELEGRAM_LOGIN,
+            token_hash=hash_link_token(raw_token),
+            expires_at=utc_now() + timedelta(minutes=self.LINK_TOKEN_TTL_MINUTES),
+        )
+        self.db.add(link_token)
+        self.db.commit()
+        self.db.refresh(link_token)
+
+        bot_username = (settings.telegram_bot_username or "").lstrip("@")
+        deep_link = f"https://t.me/{bot_username}?start=login_{raw_token}" if bot_username else ""
+        return TelegramLoginLinkResult(
+            request_id=link_token.id,
+            deep_link=deep_link,
+            expires_at=link_token.expires_at,
+        )
+
+    def consume_telegram_login_link(
+        self,
+        raw_token: str,
+        payload: TelegramUserPayload,
+    ) -> TelegramLoginConsumeResult:
+        token = self.db.scalar(
+            select(AccountLinkToken).where(
+                AccountLinkToken.provider == IdentityProvider.TELEGRAM.value,
+                AccountLinkToken.purpose == self.PURPOSE_TELEGRAM_LOGIN,
+                AccountLinkToken.token_hash == hash_link_token(raw_token),
+            )
+        )
+
+        if token is None or self._is_expired(token.expires_at):
+            raise AccountLinkError("Ссылка недействительна или устарела")
+
+        if token.used_at is not None and token.authenticated_user_id is not None:
+            user = self.db.get(User, token.authenticated_user_id)
+            identity = self.db.scalar(
+                select(UserIdentity).where(
+                    UserIdentity.provider == IdentityProvider.TELEGRAM.value,
+                    UserIdentity.user_id == token.authenticated_user_id,
+                )
+            )
+
+            if user is not None and identity is not None:
+                return TelegramLoginConsumeResult(user, identity)
+
+            raise AccountLinkError("Ссылка недействительна или устарела")
+
+        result = self.resolve_telegram_user(payload, commit=False)
+        token.authenticated_user_id = result.user.id
+        token.used_at = token.used_at or utc_now()
+        self.db.commit()
+        self.db.refresh(result.user)
+        return TelegramLoginConsumeResult(result.user, result.identity)
+
+    def get_telegram_login_status(self, request_id: UUID) -> TelegramLoginStatusResult | None:
+        token = self.db.get(AccountLinkToken, request_id)
+
+        if token is None or token.purpose != self.PURPOSE_TELEGRAM_LOGIN:
+            return None
+
+        if token.authenticated_user_id is None:
+            if self._is_expired(token.expires_at):
+                return TelegramLoginStatusResult(status="expired")
+            return TelegramLoginStatusResult(status="pending")
+
+        user = self.db.get(User, token.authenticated_user_id)
+
+        if user is None or not user.is_active:
+            return TelegramLoginStatusResult(status="expired")
+
+        return TelegramLoginStatusResult(status="authenticated", user=user)
 
     def _move_user_data(self, source_user_id: UUID, target_user_id: UUID) -> None:
         self.db.query(Offer).filter(Offer.user_id == source_user_id).update(

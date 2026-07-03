@@ -238,6 +238,49 @@ def test_account_link_merges_telegram_user_offers_into_site_user(client: TestCli
         assert str(identity.user_id) == consume_response.json()["user_id"]
 
 
+def test_telegram_login_link_allows_site_login_after_bot_confirmation(client: TestClient):
+    login_link_response = client.post("/api/auth/telegram/login-link")
+    assert login_link_response.status_code == 200
+    login_link = login_link_response.json()
+    assert login_link["status"] == "pending"
+    assert "login_" in login_link["deep_link"]
+
+    pending_response = client.get(f"/api/auth/telegram/login-link/{login_link['request_id']}")
+    assert pending_response.status_code == 200
+    assert pending_response.json()["status"] == "pending"
+    assert pending_response.json()["access_token"] is None
+
+    raw_token = login_link["deep_link"].rsplit("login_", 1)[1]
+    consume_response = client.post(
+        "/api/internal/telegram/login-links/consume",
+        headers=internal_headers(),
+        json={
+            "token": raw_token,
+            "telegram_user_id": "tg-site-login",
+            "username": "site_login_user",
+            "first_name": "Site",
+            "last_name": "Login",
+        },
+    )
+    assert consume_response.status_code == 200
+
+    authenticated_response = client.get(
+        f"/api/auth/telegram/login-link/{login_link['request_id']}"
+    )
+    assert authenticated_response.status_code == 200
+    authenticated = authenticated_response.json()
+    assert authenticated["status"] == "authenticated"
+    assert authenticated["access_token"]
+    assert authenticated["user"]["display_name"] == "Site Login"
+
+    me_response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {authenticated['access_token']}"},
+    )
+    assert me_response.status_code == 200
+    assert me_response.json()["id"] == authenticated["user"]["id"]
+
+
 def test_chain_selection_notification_is_persisted_and_not_duplicated(client: TestClient):
     resolve_telegram_user(client, "tg-selected")
 

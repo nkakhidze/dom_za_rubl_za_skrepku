@@ -124,6 +124,31 @@ class TelegramBackendClientTestCase(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn(b'"token":"link-token"', requests[0].read())
 
+    async def test_consume_login_link_sends_token_and_telegram_user(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={"user_id": "user-id", "telegram_connected": True},
+            )
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+            response = await backend.consume_login_link(
+                token="login-token",
+                user=TelegramUserData(telegram_user_id="123", username="nick"),
+            )
+
+        self.assertTrue(response["telegram_connected"])
+        self.assertEqual(
+            str(requests[0].url),
+            "http://backend/api/internal/telegram/login-links/consume",
+        )
+        self.assertIn(b'"token":"login-token"', requests[0].read())
+
     async def test_errors_are_mapped_to_domain_exceptions(self):
         cases = [
             (403, BackendUnauthorizedError),
