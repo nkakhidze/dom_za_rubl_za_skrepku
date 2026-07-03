@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import time
@@ -17,6 +18,9 @@ from app.db.models.user import User
 from app.db.models.user_consent import ConsentSource, ConsentStatus, UserConsent
 from app.schemas.auth import MarketingConsentRequest, RegisterRequest
 from app.services.legal_document_service import LegalDocumentService
+
+
+logger = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
@@ -92,16 +96,45 @@ class AuthService:
         auth_account = self.db.scalar(
             select(AuthAccount).where(
                 AuthAccount.login == normalized_login,
-                AuthAccount.is_active.is_(True),
             )
         )
 
-        if auth_account is None or not auth_account.user.is_active:
+        if auth_account is None:
+            logger.warning(
+                "Auth login failed: login=%s reason=auth_account_not_found",
+                normalized_login,
+            )
+            return None
+
+        if not auth_account.is_active:
+            logger.warning(
+                "Auth login failed: login=%s user_id=%s reason=auth_account_inactive",
+                normalized_login,
+                auth_account.user_id,
+            )
+            return None
+
+        if not auth_account.user.is_active:
+            logger.warning(
+                "Auth login failed: login=%s user_id=%s reason=user_inactive",
+                normalized_login,
+                auth_account.user_id,
+            )
             return None
 
         if not self.verify_password(password, auth_account.password_hash):
+            logger.warning(
+                "Auth login failed: login=%s user_id=%s reason=password_mismatch",
+                normalized_login,
+                auth_account.user_id,
+            )
             return None
 
+        logger.info(
+            "Auth login succeeded: login=%s user_id=%s",
+            normalized_login,
+            auth_account.user_id,
+        )
         return auth_account.user
 
     def create_access_token(self, user: User) -> str:

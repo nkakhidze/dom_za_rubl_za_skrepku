@@ -1,10 +1,26 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S%z"
+try:
+    TOMSK_TZ = ZoneInfo("Asia/Tomsk")
+except ZoneInfoNotFoundError:
+    TOMSK_TZ = timezone(timedelta(hours=7))
+
+
+class TomskFormatter(logging.Formatter):
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        created_at = datetime.fromtimestamp(record.created, tz=TOMSK_TZ)
+
+        if datefmt:
+            return created_at.strftime(datefmt)
+
+        return created_at.isoformat()
 
 
 class UvicornHealthcheckFilter(logging.Filter):
@@ -28,16 +44,22 @@ def configure_logging(
         backupCount=backup_count,
         encoding="utf-8",
     )
-    file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
+    formatter = TomskFormatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    file_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
-    root_logger.handlers = _handlers_for_logger(root_logger, file_handler, log_to_console)
+    root_logger.handlers = _handlers_for_logger(
+        root_logger,
+        file_handler,
+        log_to_console,
+        formatter,
+    )
 
     for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.INFO)
-        logger.handlers = _handlers_for_logger(logger, file_handler, log_to_console)
+        logger.handlers = _handlers_for_logger(logger, file_handler, log_to_console, formatter)
         logger.propagate = False
 
     configure_access_log_filters()
@@ -56,16 +78,18 @@ def _handlers_for_logger(
     logger: logging.Logger,
     file_handler: RotatingFileHandler,
     log_to_console: bool,
+    formatter: logging.Formatter,
 ) -> list[logging.Handler]:
     handlers: list[logging.Handler] = [file_handler]
 
     if log_to_console:
-        handlers.extend(
-            handler
-            for handler in logger.handlers
-            if isinstance(handler, logging.StreamHandler)
-            and not isinstance(handler, RotatingFileHandler)
-        )
+        for handler in logger.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler,
+                RotatingFileHandler,
+            ):
+                handler.setFormatter(formatter)
+                handlers.append(handler)
 
     return handlers
 

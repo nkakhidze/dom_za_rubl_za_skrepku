@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import logging
 
 import pytest
 from fastapi.testclient import TestClient
@@ -74,15 +75,18 @@ def create_auth_user_with_role(client: TestClient, login: str, role: str) -> str
     return response.json()["access_token"]
 
 
-def test_login_rejects_wrong_password(client: TestClient):
+def test_login_rejects_wrong_password(client: TestClient, caplog):
     create_auth_user_with_role(client, "auth-user", RoleCode.USER.value)
 
-    response = client.post(
-        "/api/auth/login",
-        json={"login": "auth-user", "password": "wrong"},
-    )
+    with caplog.at_level(logging.WARNING, logger="app.services.auth_service"):
+        response = client.post(
+            "/api/auth/login",
+            json={"login": "auth-user", "password": "wrong"},
+        )
 
     assert response.status_code == 401
+    assert "reason=password_mismatch" in caplog.text
+    assert "wrong" not in caplog.text
 
 
 def test_login_rejects_missing_login_like_wrong_password(client: TestClient):
