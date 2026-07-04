@@ -48,17 +48,23 @@ def get_offers(
     if visibility_status is not None:
         query = query.where(Offer.visibility_status.in_(visibility_status))
 
-    user_value_for_sort = case(
-        (Offer.moderated_value.is_(None), Offer.declared_value),
-        (Offer.declared_value <= Offer.moderated_value, Offer.declared_value),
-        else_=None,
+    visibility_rank = case(
+        (Offer.visibility_status == "normal", 0),
+        (Offer.visibility_status == "low_priority", 1),
+        (Offer.visibility_status == "hidden", 2),
+        else_=3,
+    )
+    admin_value_presence_sort = case(
+        (Offer.moderated_value.is_not(None), 1),
+        else_=0,
     )
 
     if sort in {"value_desc", "moderated_value_desc"}:
         query = query.order_by(
-            Offer.visibility_status.asc(),
+            visibility_rank.asc(),
+            admin_value_presence_sort.desc(),
             Offer.moderated_value.desc().nullslast(),
-            user_value_for_sort.desc().nullslast(),
+            Offer.declared_value.desc().nullslast(),
             Offer.created_at.desc(),
         )
     elif sort == "priority":
