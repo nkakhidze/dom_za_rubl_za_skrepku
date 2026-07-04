@@ -20,11 +20,13 @@ test("admin offers backend excludes selected offers by default", () => {
   assert.match(routerSource, /if offer_status is not None/);
 });
 
-test("admin offers backend sorts by admin value, allowed user value, then newest date", () => {
+test("admin offers backend sorts admin-valued offers before user-valued offers", () => {
   assert.match(routerSource, /sort: str = Query\(default="value_desc"/);
+  assert.match(routerSource, /admin_value_presence_sort/);
+  assert.match(routerSource, /Offer\.moderated_value\.is_not\(None\)/);
+  assert.match(routerSource, /admin_value_presence_sort\.desc\(\)/);
   assert.match(routerSource, /Offer\.moderated_value\.desc\(\)\.nullslast\(\)/);
-  assert.match(routerSource, /Offer\.declared_value <= Offer\.moderated_value/);
-  assert.match(routerSource, /user_value_for_sort\.desc\(\)\.nullslast\(\)/);
+  assert.match(routerSource, /Offer\.declared_value\.desc\(\)\.nullslast\(\)/);
   assert.match(routerSource, /Offer\.created_at\.desc\(\)/);
 });
 

@@ -50,7 +50,7 @@ def client(monkeypatch) -> Generator[TestClient, None, None]:
         engine.dispose()
 
 
-def create_offer(client: TestClient, title: str = "Книга") -> dict:
+def create_offer(client: TestClient, title: str = "Книга", declared_value: int = 1000) -> dict:
     response = client.post(
         "/api/offers",
         json={
@@ -60,7 +60,7 @@ def create_offer(client: TestClient, title: str = "Книга") -> dict:
             "description": "Хороший предмет для следующего обмена.",
             "offer_type": "physical_item",
             "city": "Томск",
-            "declared_value": 1000,
+            "declared_value": declared_value,
             "photo_urls": ["/uploads/images/item.jpg"],
             "exchange_preference": "any_offer",
             "consent_accepted": True,
@@ -70,6 +70,43 @@ def create_offer(client: TestClient, title: str = "Книга") -> dict:
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_admin_offer_value_sort_promotes_admin_valued_offers(client: TestClient):
+    high_user_value = create_offer(client, title="value-5", declared_value=5)
+    middle_user_value = create_offer(client, title="value-4", declared_value=4)
+    low_user_value = create_offer(client, title="value-3", declared_value=3)
+
+    initial_response = client.get(
+        "/api/admin/offers",
+        headers=ADMIN_HEADERS,
+        params={"sort": "value_desc"},
+    )
+    assert initial_response.status_code == 200
+    assert [offer["id"] for offer in initial_response.json()[:3]] == [
+        high_user_value["id"],
+        middle_user_value["id"],
+        low_user_value["id"],
+    ]
+
+    moderation_response = client.patch(
+        f"/api/admin/offers/{low_user_value['id']}/moderation",
+        headers=ADMIN_HEADERS,
+        json={"moderated_value": 2},
+    )
+    assert moderation_response.status_code == 200
+
+    sorted_response = client.get(
+        "/api/admin/offers",
+        headers=ADMIN_HEADERS,
+        params={"sort": "value_desc"},
+    )
+    assert sorted_response.status_code == 200
+    assert [offer["id"] for offer in sorted_response.json()[:3]] == [
+        low_user_value["id"],
+        high_user_value["id"],
+        middle_user_value["id"],
+    ]
 
 
 def create_current_item(client: TestClient) -> dict:
