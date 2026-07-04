@@ -79,7 +79,6 @@ a:hover {
 .page {
   margin: 0 auto;
   max-width: 1120px;
-  overflow-wrap: anywhere;
   padding: 32px 24px 56px;
 }
 
@@ -704,14 +703,29 @@ h3 {
 }
 
 .checkbox-line {
-  align-items: center;
-  display: flex;
-  gap: 10px;
+  align-items: start;
+  display: grid;
+  gap: 10px 12px;
+  grid-template-columns: 20px minmax(0, 1fr);
   line-height: 1.4;
+  max-width: 780px;
+  overflow-wrap: normal;
+  width: 100%;
+  word-break: normal;
 }
 
 .checkbox-line input {
-  flex: 0 0 auto;
+  height: 16px;
+  justify-self: center;
+  margin-top: 3px;
+  width: 16px;
+}
+
+.checkbox-line span,
+.checkbox-line a {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .plain-fieldset {
