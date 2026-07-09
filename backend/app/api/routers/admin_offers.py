@@ -8,6 +8,7 @@ from app.api.deps import get_db, require_admin_access, require_any_role
 from app.db.models.auth import RoleCode
 from app.db.models.offer import Offer, OfferStatus
 from app.db.models.offer_photo import OfferPhoto
+from app.db.models.user import User
 from app.schemas.offer import (
     AdminOfferDetail,
     AdminOfferListItem,
@@ -90,7 +91,10 @@ def get_offer(
 ):
     offer = db.scalar(
         select(Offer)
-        .options(selectinload(Offer.photos))
+        .options(
+            selectinload(Offer.photos),
+            selectinload(Offer.user).selectinload(User.messenger_accounts),
+        )
         .where(Offer.id == offer_id)
     )
 

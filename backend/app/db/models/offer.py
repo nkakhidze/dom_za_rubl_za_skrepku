@@ -165,6 +165,42 @@ class Offer(Base):
     def status_label(self) -> str:
         return OFFER_STATUS_LABELS.get(self.status, self.status)
 
+    @property
+    def user_phone(self) -> str | None:
+        if self.user is None:
+            return None
+
+        return self.user.phone
+
+    @property
+    def user_email(self) -> str | None:
+        if self.user is None:
+            return None
+
+        return self.user.email
+
+    @property
+    def telegram_username(self) -> str | None:
+        if self.user is None:
+            return None
+
+        for account in self.user.messenger_accounts:
+            if account.messenger_type == "telegram":
+                return account.username
+
+        return None
+
+    @property
+    def telegram_user_id(self) -> str | None:
+        if self.user is None:
+            return None
+
+        for account in self.user.messenger_accounts:
+            if account.messenger_type == "telegram":
+                return account.external_user_id
+
+        return None
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

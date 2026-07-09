@@ -171,6 +171,11 @@ class AdminOfferListItem(BaseModel):
 
 
 class AdminOfferDetail(AdminOfferListItem):
+    user_phone: str | None = None
+    user_email: str | None = None
+    telegram_username: str | None = None
+    telegram_user_id: str | None = None
+
     consent_accepted: bool
     consent_accepted_at: datetime | None
     consent_text_version: str | None

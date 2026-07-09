@@ -54,7 +54,7 @@ function App() {
     <BrowserRouter>
       <header className="topbar">
         <Link className="brand" to="/">
-          Дом за рубль за скрепку
+          Дом за скрепку
         </Link>
         <nav>
           <Link to="/">История обменов</Link>

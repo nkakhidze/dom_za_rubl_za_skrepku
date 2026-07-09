@@ -14,6 +14,10 @@ const itemSchemaSource = readFileSync(
   new URL("../../app/schemas/item.py", import.meta.url),
   "utf8",
 );
+const adminOfferDetailSource = readFileSync(
+  new URL("../src/pages/admin/AdminOfferDetailPage.tsx", import.meta.url),
+  "utf8",
+);
 
 test("admin offers backend excludes selected offers by default", () => {
   assert.match(routerSource, /Offer\.status != OfferStatus\.SELECTED\.value/);
@@ -49,4 +53,11 @@ test("admin and super admin can add and delete item photos", () => {
   assert.match(itemsRouterSource, /ItemPhoto/);
   assert.match(itemSchemaSource, /AdminItemPhotoCreateRequest/);
   assert.match(itemSchemaSource, /AdminItemPhotoResponse/);
+});
+
+test("admin offer detail shows owner contact fields", () => {
+  assert.match(adminOfferDetailSource, /offer\.user_phone/);
+  assert.match(adminOfferDetailSource, /offer\.user_email/);
+  assert.match(adminOfferDetailSource, /offer\.telegram_username/);
+  assert.match(adminOfferDetailSource, /offer\.telegram_user_id/);
 });
