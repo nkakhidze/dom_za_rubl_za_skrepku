@@ -162,7 +162,7 @@ async def start(message: Message, command: CommandObject):
         return
 
     await message.answer(
-        "Привет! Я помогу предложить предмет для проекта «Дом за рубль за скрепку».",
+        "Привет! Я помогу предложить предмет для проекта «Дом за за скрепку».",
         reply_markup=main_keyboard(),
     )
 

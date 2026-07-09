@@ -63,7 +63,7 @@ POST /api/admin/items
   "description": "Стартовый предмет цепочки",
   "item_type": "physical_item",
   "owner_type": "tom_sawyer_fest",
-  "owner_name": "Дом за рубль за скрепку",
+  "owner_name": "Дом за скрепку",
   "is_current": true,
   "is_public": true,
   "sequence_number": 0

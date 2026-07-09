@@ -45,6 +45,14 @@ function numberOrNull(value: string): number | null {
   return Number(value);
 }
 
+function formatTelegramUsername(value?: string | null): string {
+  if (!value) {
+    return "-";
+  }
+
+  return value.startsWith("@") ? value : `@${value}`;
+}
+
 export function AdminOfferDetailPage() {
   const { offerId } = useParams();
   const [offer, setOffer] = useState<AdminOffer | null>(null);
@@ -260,6 +268,22 @@ export function AdminOfferDetailPage() {
               <div>
                 <dt>Имя пользователя</dt>
                 <dd>{offer.participant_public_name || "-"}</dd>
+              </div>
+              <div>
+                <dt>Телефон</dt>
+                <dd>{offer.user_phone || "-"}</dd>
+              </div>
+              <div>
+                <dt>Email</dt>
+                <dd>{offer.user_email || "-"}</dd>
+              </div>
+              <div>
+                <dt>Telegram ник</dt>
+                <dd>{formatTelegramUsername(offer.telegram_username)}</dd>
+              </div>
+              <div>
+                <dt>Telegram id</dt>
+                <dd>{offer.telegram_user_id || "-"}</dd>
               </div>
               <div>
                 <dt>Согласие</dt>

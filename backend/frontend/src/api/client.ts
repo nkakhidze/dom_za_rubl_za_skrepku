@@ -150,6 +150,10 @@ export type AdminOffer = {
   moderation_comment: string | null;
   created_at: string;
   updated_at: string;
+  user_phone?: string | null;
+  user_email?: string | null;
+  telegram_username?: string | null;
+  telegram_user_id?: string | null;
   consent_accepted?: boolean;
   consent_accepted_at?: string | null;
   consent_text_version?: string | null;

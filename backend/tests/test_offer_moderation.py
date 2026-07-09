@@ -14,6 +14,7 @@ from app.db.database import Base
 from app.db.models.offer import Offer
 from app.db.models.user import User
 from app.schemas.offer import (
+    AdminOfferDetail,
     AdminOfferModerationUpdateRequest,
     AdminOfferStatusUpdateRequest,
     OfferCreateRequest,
@@ -93,6 +94,24 @@ class OfferModerationTestCase(unittest.TestCase):
         )
 
         self.assertEqual(request.declared_value, 400000)
+
+    def test_admin_offer_detail_contains_owner_contact_fields(self) -> None:
+        offer = self.create_offer(
+            title="Contacted offer",
+            external_user_id="tg-contact-user",
+        )
+        offer.user.phone = "+79990000000"
+        offer.user.email = "participant@example.com"
+        offer.user.messenger_accounts[0].username = "paperclip_user"
+        self.db.commit()
+        self.db.refresh(offer)
+
+        admin_offer = AdminOfferDetail.model_validate(offer).model_dump(mode="json")
+
+        self.assertEqual(admin_offer["user_phone"], "+79990000000")
+        self.assertEqual(admin_offer["user_email"], "participant@example.com")
+        self.assertEqual(admin_offer["telegram_username"], "paperclip_user")
+        self.assertEqual(admin_offer["telegram_user_id"], "tg-contact-user")
 
     def test_publication_sends_telegram_notification(self) -> None:
         class FakeNotificationService:
