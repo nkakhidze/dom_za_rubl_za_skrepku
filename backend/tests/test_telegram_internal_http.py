@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from io import BytesIO
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -135,6 +136,35 @@ def test_resolve_creates_user_identity_once_and_updates_username(client: TestCli
         assert identities[0].username == "updated_username"
 
 
+def test_internal_telegram_phone_update_saves_contact_phone(client: TestClient):
+    response = client.post(
+        "/api/internal/telegram/users/phone",
+        headers=internal_headers(),
+        json={
+            "telegram_user_id": "tg-phone",
+            "username": None,
+            "first_name": "No",
+            "last_name": "Username",
+            "phone": "+7 (999) 000-00-00",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["telegram_phone"] == "+79990000000"
+
+    resolve_response = client.post(
+        "/api/internal/telegram/users/resolve",
+        headers=internal_headers(),
+        json={"telegram_user_id": "tg-phone"},
+    )
+    assert resolve_response.status_code == 200
+    assert resolve_response.json()["telegram_phone"] == "+79990000000"
+
+    with next(app.dependency_overrides[get_db]()) as db:
+        user = db.scalar(select(User))
+        assert user.telegram_phone == "+79990000000"
+
+
 def test_internal_offer_creation_is_idempotent_and_saves_photos(client: TestClient):
     response = client.post(
         "/api/internal/telegram/offers",
@@ -191,6 +221,16 @@ def test_account_link_merges_telegram_user_offers_into_site_user(client: TestCli
         files=[("photos", ("item.png", png_bytes(), "image/png"))],
     )
     assert telegram_offer.status_code == 201
+    phone_response = client.post(
+        "/api/internal/telegram/users/phone",
+        headers=internal_headers(),
+        json={
+            "telegram_user_id": "tg-link",
+            "username": "linked_user",
+            "phone": "+7 900 111-22-33",
+        },
+    )
+    assert phone_response.status_code == 200
 
     with next(app.dependency_overrides[get_db]()) as db:
         site_user = AuthService(db).create_auth_user("site-user", "password", "Site User")
@@ -236,6 +276,8 @@ def test_account_link_merges_telegram_user_offers_into_site_user(client: TestCli
             )
         )
         assert str(identity.user_id) == consume_response.json()["user_id"]
+        site_user = db.get(User, UUID(consume_response.json()["user_id"]))
+        assert site_user.telegram_phone == "+79001112233"
 
 
 def test_telegram_login_link_allows_site_login_after_bot_confirmation(client: TestClient):

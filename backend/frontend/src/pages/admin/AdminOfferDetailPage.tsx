@@ -278,6 +278,10 @@ export function AdminOfferDetailPage() {
                 <dd>{offer.user_email || "-"}</dd>
               </div>
               <div>
+                <dt>Telegram телефон</dt>
+                <dd>{offer.telegram_phone || "-"}</dd>
+              </div>
+              <div>
                 <dt>Telegram ник</dt>
                 <dd>{formatTelegramUsername(offer.telegram_username)}</dd>
               </div>

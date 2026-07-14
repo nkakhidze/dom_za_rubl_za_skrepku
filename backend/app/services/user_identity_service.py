@@ -223,6 +223,8 @@ class UserIdentityService:
 
         identity.user_id = site_user.id
         self._move_user_data(telegram_user.id, site_user.id)
+        if site_user.telegram_phone is None and telegram_user.telegram_phone:
+            site_user.telegram_phone = telegram_user.telegram_phone
         telegram_user.merged_into_user_id = site_user.id
         telegram_user.merged_at = utc_now()
         telegram_user.is_active = False

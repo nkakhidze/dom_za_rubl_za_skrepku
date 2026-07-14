@@ -12,10 +12,15 @@ class TelegramResolveUserRequest(BaseModel):
     language_code: str | None = Field(default=None, max_length=20)
 
 
+class TelegramPhoneUpdateRequest(TelegramResolveUserRequest):
+    phone: str = Field(min_length=3, max_length=50)
+
+
 class TelegramResolveUserResponse(BaseModel):
     user_id: UUID
     created: bool
     telegram_connected: bool = True
+    telegram_phone: str | None = None
 
 
 class TelegramOfferCreateResponse(BaseModel):

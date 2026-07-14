@@ -54,6 +54,7 @@ BTN_LINK_SITE = "🔗 Связать с сайтом"
 BTN_OPEN_SITE = "🌐 Открыть сайт"
 BTN_DONE = "Готово"
 BTN_CANCEL = "Отменить"
+BTN_SHARE_PHONE = "📱 Поделиться телефоном"
 
 
 class NewOfferStates(StatesGroup):
@@ -62,6 +63,7 @@ class NewOfferStates(StatesGroup):
     city = State()
     declared_value = State()
     participant_public_name = State()
+    telegram_phone = State()
     photos = State()
     confirm = State()
 
@@ -73,6 +75,24 @@ def main_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text=BTN_MY_OFFERS), KeyboardButton(text=BTN_LINK_SITE)],
             [KeyboardButton(text=BTN_OPEN_SITE)],
         ],
+        resize_keyboard=True,
+    )
+
+
+def phone_request_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_SHARE_PHONE, request_contact=True)],
+            [KeyboardButton(text=BTN_CANCEL)],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def photos_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=BTN_DONE), KeyboardButton(text=BTN_CANCEL)]],
         resize_keyboard=True,
     )
 
@@ -131,6 +151,15 @@ async def resolve_user(message: Message) -> None:
 
 async def show_menu(message: Message) -> None:
     await message.answer(texts.MENU_TEXT, reply_markup=main_keyboard())
+
+
+async def ask_for_photos(message: Message, state: FSMContext) -> None:
+    await state.update_data(photos=[])
+    await state.set_state(NewOfferStates.photos)
+    await message.answer(
+        "Пришлите 1-3 фотографии. Когда закончите, нажмите «Готово».",
+        reply_markup=photos_keyboard(),
+    )
 
 
 @router.message(Command("start"))
@@ -316,15 +345,79 @@ async def collect_public_name(message: Message, state: FSMContext):
     await state.update_data(
         participant_public_name=public_name,
         participant_visible=bool(public_name),
-        photos=[],
     )
-    await state.set_state(NewOfferStates.photos)
+
+    try:
+        user = user_data_from_message(message)
+        if user.username:
+            await ask_for_photos(message, state)
+            return
+
+        async with backend_client() as backend:
+            resolved_user = await backend.resolve_user(user)
+    except (BackendClientError, ValueError):
+        logger.exception("Failed to check Telegram contact phone before offer photo step")
+        await state.clear()
+        await message.answer(texts.SERVICE_UNAVAILABLE, reply_markup=main_keyboard())
+        return
+
+    if resolved_user.get("telegram_phone"):
+        await ask_for_photos(message, state)
+        return
+
+    await state.set_state(NewOfferStates.telegram_phone)
     await message.answer(
-        "Пришлите 1-3 фотографии. Когда закончите, нажмите «Готово».",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text=BTN_DONE), KeyboardButton(text=BTN_CANCEL)]],
-            resize_keyboard=True,
-        ),
+        "У вашего Telegram-аккаунта нет публичного ника. Чтобы волонтёры проекта могли "
+        "связаться с вами по заявке, пожалуйста, поделитесь номером телефона через кнопку ниже.",
+        reply_markup=phone_request_keyboard(),
+    )
+
+
+@router.message(NewOfferStates.telegram_phone, F.text == BTN_CANCEL)
+async def cancel_offer_from_phone(message: Message, state: FSMContext):
+    await cancel(message, state)
+
+
+@router.message(NewOfferStates.telegram_phone, F.contact)
+async def collect_telegram_phone(message: Message, state: FSMContext):
+    if message.contact is None or not message.contact.phone_number:
+        await message.answer(
+            "Не удалось получить номер. Нажмите кнопку «Поделиться телефоном», пожалуйста.",
+            reply_markup=phone_request_keyboard(),
+        )
+        return
+
+    if (
+        message.contact.user_id is not None
+        and message.from_user is not None
+        and message.contact.user_id != message.from_user.id
+    ):
+        await message.answer(
+            "Пожалуйста, поделитесь именно своим номером через кнопку Telegram.",
+            reply_markup=phone_request_keyboard(),
+        )
+        return
+
+    try:
+        user = user_data_from_message(message)
+        async with backend_client() as backend:
+            await backend.update_telegram_phone(
+                user=user,
+                phone=message.contact.phone_number,
+            )
+    except (BackendClientError, ValueError):
+        logger.exception("Failed to save Telegram contact phone")
+        await message.answer(texts.SERVICE_UNAVAILABLE, reply_markup=phone_request_keyboard())
+        return
+
+    await ask_for_photos(message, state)
+
+
+@router.message(NewOfferStates.telegram_phone)
+async def telegram_phone_fallback(message: Message):
+    await message.answer(
+        "Пожалуйста, нажмите кнопку «Поделиться телефоном». Так мы получим контакт для связи по заявке.",
+        reply_markup=phone_request_keyboard(),
     )
 
 

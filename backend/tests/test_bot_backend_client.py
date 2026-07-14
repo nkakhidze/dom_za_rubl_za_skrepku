@@ -99,6 +99,38 @@ class TelegramBackendClientTestCase(unittest.IsolatedAsyncioTestCase):
             "http://backend/api/internal/telegram/offers?telegram_user_id=123",
         )
 
+    async def test_update_telegram_phone_sends_contact_phone(self):
+        requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={
+                    "user_id": "user-id",
+                    "created": False,
+                    "telegram_connected": True,
+                    "telegram_phone": "+79990000000",
+                },
+            )
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+        async with TelegramBackendClient("http://backend", "secret", async_client) as backend:
+            response = await backend.update_telegram_phone(
+                user=TelegramUserData(telegram_user_id="123", username=None),
+                phone="+7 (999) 000-00-00",
+            )
+
+        self.assertEqual(response["telegram_phone"], "+79990000000")
+        self.assertEqual(
+            str(requests[0].url),
+            "http://backend/api/internal/telegram/users/phone",
+        )
+        body = requests[0].read()
+        self.assertIn(b'"telegram_user_id":"123"', body)
+        self.assertIn(b'"phone":"+7 (999) 000-00-00"', body)
+
     async def test_consume_account_link_sends_token_and_telegram_user(self):
         requests: list[httpx.Request] = []
 
@@ -196,3 +228,13 @@ class TelegramBotContractTestCase(unittest.TestCase):
 
         self.assertIn('BTN_NEW_OFFER = "📎 Предложить обмен"', source)
         self.assertNotIn("Предложить предмет", source)
+
+    def test_bot_requests_contact_for_telegram_users_without_username(self):
+        root = Path(__file__).resolve().parents[1]
+        main_source = (root / "bot" / "main.py").read_text(encoding="utf-8")
+        client_source = (root / "bot" / "backend_client.py").read_text(encoding="utf-8")
+
+        self.assertIn("request_contact=True", main_source)
+        self.assertIn("NewOfferStates.telegram_phone", main_source)
+        self.assertIn("resolved_user.get(\"telegram_phone\")", main_source)
+        self.assertIn("update_telegram_phone", client_source)

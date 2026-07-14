@@ -58,6 +58,7 @@ test("admin and super admin can add and delete item photos", () => {
 test("admin offer detail shows owner contact fields", () => {
   assert.match(adminOfferDetailSource, /offer\.user_phone/);
   assert.match(adminOfferDetailSource, /offer\.user_email/);
+  assert.match(adminOfferDetailSource, /offer\.telegram_phone/);
   assert.match(adminOfferDetailSource, /offer\.telegram_username/);
   assert.match(adminOfferDetailSource, /offer\.telegram_user_id/);
 });

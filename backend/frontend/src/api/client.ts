@@ -152,6 +152,7 @@ export type AdminOffer = {
   updated_at: string;
   user_phone?: string | null;
   user_email?: string | null;
+  telegram_phone?: string | null;
   telegram_username?: string | null;
   telegram_user_id?: string | null;
   consent_accepted?: boolean;

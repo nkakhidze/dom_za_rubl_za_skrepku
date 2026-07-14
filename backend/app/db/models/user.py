@@ -26,6 +26,7 @@ class User(Base):
     phone_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     phone1: Mapped[str | None] = mapped_column(String(50), nullable=True)
     phone2: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    telegram_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     merged_into_user_id: Mapped[uuid.UUID | None] = mapped_column(

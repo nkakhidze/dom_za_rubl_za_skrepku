@@ -173,6 +173,7 @@ class AdminOfferListItem(BaseModel):
 class AdminOfferDetail(AdminOfferListItem):
     user_phone: str | None = None
     user_email: str | None = None
+    telegram_phone: str | None = None
     telegram_username: str | None = None
     telegram_user_id: str | None = None
 
