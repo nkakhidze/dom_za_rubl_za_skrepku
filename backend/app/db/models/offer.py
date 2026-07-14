@@ -170,7 +170,12 @@ class Offer(Base):
         if self.user is None:
             return None
 
-        return self.user.phone
+        phone_numbers = []
+        for phone in (self.user.phone, self.user.phone1, self.user.phone2):
+            if phone and phone not in phone_numbers:
+                phone_numbers.append(phone)
+
+        return ", ".join(phone_numbers) or None
 
     @property
     def user_email(self) -> str | None:
@@ -178,6 +183,13 @@ class Offer(Base):
             return None
 
         return self.user.email
+
+    @property
+    def telegram_phone(self) -> str | None:
+        if self.user is None:
+            return None
+
+        return self.user.telegram_phone
 
     @property
     def telegram_username(self) -> str | None:

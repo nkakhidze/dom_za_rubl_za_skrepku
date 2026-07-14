@@ -101,15 +101,22 @@ class OfferModerationTestCase(unittest.TestCase):
             external_user_id="tg-contact-user",
         )
         offer.user.phone = "+79990000000"
+        offer.user.phone1 = "+78880000000"
+        offer.user.phone2 = "+77770000000"
         offer.user.email = "participant@example.com"
+        offer.user.telegram_phone = "+76660000000"
         offer.user.messenger_accounts[0].username = "paperclip_user"
         self.db.commit()
         self.db.refresh(offer)
 
         admin_offer = AdminOfferDetail.model_validate(offer).model_dump(mode="json")
 
-        self.assertEqual(admin_offer["user_phone"], "+79990000000")
+        self.assertEqual(
+            admin_offer["user_phone"],
+            "+79990000000, +78880000000, +77770000000",
+        )
         self.assertEqual(admin_offer["user_email"], "participant@example.com")
+        self.assertEqual(admin_offer["telegram_phone"], "+76660000000")
         self.assertEqual(admin_offer["telegram_username"], "paperclip_user")
         self.assertEqual(admin_offer["telegram_user_id"], "tg-contact-user")
 

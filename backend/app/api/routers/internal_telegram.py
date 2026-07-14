@@ -12,6 +12,7 @@ from app.schemas.internal_telegram import (
     TelegramConsumeLinkResponse,
     TelegramOfferCreateResponse,
     TelegramOfferListItem,
+    TelegramPhoneUpdateRequest,
     TelegramResolveUserRequest,
     TelegramResolveUserResponse,
 )
@@ -20,6 +21,7 @@ from app.services.file_storage_service import FileStorageService
 from app.services.image_service import ImageUploadError, delete_uploaded_image_files
 from app.services.offer_limit_service import OfferLimitResult
 from app.services.offer_service import OfferService
+from app.services.auth_service import AuthService
 from app.services.user_identity_service import (
     AccountLinkConflictError,
     AccountLinkError,
@@ -35,7 +37,9 @@ router = APIRouter(
 )
 
 
-def _payload_from_request(request: TelegramResolveUserRequest | TelegramConsumeLinkRequest) -> TelegramUserPayload:
+def _payload_from_request(
+    request: TelegramResolveUserRequest | TelegramConsumeLinkRequest,
+) -> TelegramUserPayload:
     return TelegramUserPayload(
         telegram_user_id=request.telegram_user_id,
         username=request.username,
@@ -51,7 +55,38 @@ def resolve_user(
     db: Session = Depends(get_db),
 ):
     result = UserIdentityService(db).resolve_telegram_user(_payload_from_request(request))
-    return TelegramResolveUserResponse(user_id=result.user.id, created=result.created)
+    return TelegramResolveUserResponse(
+        user_id=result.user.id,
+        created=result.created,
+        telegram_phone=result.user.telegram_phone,
+    )
+
+
+@router.post("/users/phone", response_model=TelegramResolveUserResponse)
+def update_telegram_phone(
+    request: TelegramPhoneUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    phone = AuthService.normalize_phone(request.phone)
+    if phone is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone is required",
+        )
+
+    result = UserIdentityService(db).resolve_telegram_user(
+        _payload_from_request(request),
+        commit=False,
+    )
+    result.user.telegram_phone = phone
+    db.commit()
+    db.refresh(result.user)
+
+    return TelegramResolveUserResponse(
+        user_id=result.user.id,
+        created=result.created,
+        telegram_phone=result.user.telegram_phone,
+    )
 
 
 @router.get("/offers", response_model=list[TelegramOfferListItem])

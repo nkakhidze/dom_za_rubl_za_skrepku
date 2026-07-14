@@ -94,6 +94,22 @@ class TelegramBackendClient:
         )
         return response
 
+    async def update_telegram_phone(
+        self,
+        *,
+        user: TelegramUserData,
+        phone: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/api/internal/telegram/users/phone",
+            json={
+                **self._telegram_user_payload(user),
+                "phone": phone,
+            },
+        )
+        return response
+
     async def consume_account_link(
         self,
         *,
