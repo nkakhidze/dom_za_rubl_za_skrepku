@@ -63,6 +63,7 @@ class PublicExchangeChainDealItem(BaseModel):
     id: UUID
     title: str
     description: str | None
+    public_story: str | None = None
     photo_url: str | None
     photo_urls: list[str] = Field(default_factory=list)
     thumbnail_url: str | None = None

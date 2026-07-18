@@ -18,6 +18,8 @@ test("exchange history page renders a linked item chain instead of step cards", 
   assert.match(pageSource, /buildChainNodes/);
   assert.match(pageSource, /buildChainNodes\(deals, currentItem\)\.reverse\(\)/);
   assert.match(pageSource, /currentItemToChainItem/);
+  assert.match(pageSource, /node\.item\.public_story/);
+  assert.doesNotMatch(pageSource, /incomingDeal\.public_story/);
   assert.doesNotMatch(pageSource, /Старт/);
   assert.doesNotMatch(pageSource, /Получили/);
   assert.doesNotMatch(pageSource, /chain-label/);

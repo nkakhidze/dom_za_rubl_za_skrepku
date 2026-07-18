@@ -81,6 +81,7 @@ def get_exchange_chain(
                 id=deal_given_item.id,
                 title=deal_given_item.title,
                 description=deal_given_item.description,
+                public_story=deal_given_item.public_story,
                 photo_url=deal_given_item.photo_urls[0] if deal_given_item.photo_urls else None,
                 photo_urls=deal_given_item.photo_urls,
                 thumbnail_url=(
@@ -94,6 +95,7 @@ def get_exchange_chain(
                 id=deal_received_item.id,
                 title=deal_received_item.title,
                 description=deal_received_item.description,
+                public_story=deal_received_item.public_story,
                 photo_url=deal_received_item.photo_urls[0] if deal_received_item.photo_urls else None,
                 photo_urls=deal_received_item.photo_urls,
                 thumbnail_url=(

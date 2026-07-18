@@ -36,9 +36,6 @@ export function RegisterPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [isAdultConfirmed, setIsAdultConfirmed] = useState(false);
-  const [userAgreementAccepted, setUserAgreementAccepted] = useState(false);
-  const [personalDataConsentAccepted, setPersonalDataConsentAccepted] = useState(false);
   const [marketingEmail, setMarketingEmail] = useState(false);
   const [marketingTelegram, setMarketingTelegram] = useState(false);
   const [marketingMax, setMarketingMax] = useState(false);
@@ -69,6 +66,18 @@ export function RegisterPage() {
     [documents],
   );
 
+  const legalVersionSummary = useMemo(() => {
+    const requiredDocuments = [
+      docsByCode.user_agreement,
+      docsByCode.personal_data_consent,
+      docsByCode.privacy_policy,
+    ].filter((document): document is LegalDocumentListItem => Boolean(document));
+
+    return requiredDocuments
+      .map((document) => `${document.title}: ${document.version}`)
+      .join("; ");
+  }, [docsByCode]);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -91,13 +100,13 @@ export function RegisterPage() {
         display_name: displayName,
         phone: phone.trim(),
         email: email || null,
-        is_adult_confirmed: isAdultConfirmed,
+        is_adult_confirmed: true,
         user_agreement: {
-          accepted: userAgreementAccepted,
+          accepted: true,
           version: userAgreement.version,
         },
         personal_data_consent: {
-          accepted: personalDataConsentAccepted,
+          accepted: true,
           version: personalDataConsent.version,
         },
         privacy_policy_version: privacyPolicy.version,
@@ -166,38 +175,6 @@ export function RegisterPage() {
           <input value={email} onChange={(event) => setEmail(event.target.value)} />
         </label>
 
-        <label className="checkbox-line">
-          <input
-            type="checkbox"
-            checked={isAdultConfirmed}
-            onChange={(event) => setIsAdultConfirmed(event.target.checked)}
-          />
-          Подтверждаю, что мне исполнилось 18 лет.
-        </label>
-        <label className="checkbox-line">
-          <input
-            type="checkbox"
-            checked={userAgreementAccepted}
-            onChange={(event) => setUserAgreementAccepted(event.target.checked)}
-          />
-          <span>
-            Принимаю{" "}
-            <LegalLink to={CODE_TO_ROUTE.user_agreement}>Пользовательское соглашение</LegalLink>.
-          </span>
-        </label>
-        <label className="checkbox-line">
-          <input
-            type="checkbox"
-            checked={personalDataConsentAccepted}
-            onChange={(event) => setPersonalDataConsentAccepted(event.target.checked)}
-          />
-          <span>
-            Даю согласие на обработку персональных данных и подтверждаю ознакомление с{" "}
-            <LegalLink to={CODE_TO_ROUTE.personal_data_consent}>согласием</LegalLink> и{" "}
-            <LegalLink to={CODE_TO_ROUTE.privacy_policy}>политикой обработки данных</LegalLink>.
-          </span>
-        </label>
-
         <fieldset className="plain-fieldset">
           <legend>Хочу получать новости проекта</legend>
           <label className="checkbox-line">
@@ -226,6 +203,22 @@ export function RegisterPage() {
           </label>
           <LegalLink to={CODE_TO_ROUTE.marketing_consent}>Согласие на рассылки</LegalLink>
         </fieldset>
+
+        <div className="legal-agreement-copy">
+          <p>
+            Продолжая регистрацию, вы подтверждаете, что вам уже исполнилось 18 лет, и соглашаетесь с{" "}
+            <LegalLink to={CODE_TO_ROUTE.user_agreement}>Пользовательским соглашением</LegalLink>,{" "}
+            <LegalLink to={CODE_TO_ROUTE.privacy_policy}>Политикой конфиденциальности</LegalLink> и даёте{" "}
+            <LegalLink to={CODE_TO_ROUTE.personal_data_consent}>
+              Согласие на обработку персональных данных
+            </LegalLink>.
+          </p>
+          {legalVersionSummary && (
+            <p className="legal-version-note">
+              При регистрации будут зафиксированы версии документов: {legalVersionSummary}.
+            </p>
+          )}
+        </div>
 
         <div className="actions">
           <button type="submit">Зарегистрироваться</button>

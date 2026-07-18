@@ -29,6 +29,7 @@ export type PublicExchangeChainItem = {
     id: string;
     title: string;
     description: string | null;
+    public_story: string | null;
     photo_url: string | null;
     photo_urls: string[];
     thumbnail_url: string | null;
@@ -38,6 +39,7 @@ export type PublicExchangeChainItem = {
     id: string;
     title: string;
     description: string | null;
+    public_story: string | null;
     photo_url: string | null;
     photo_urls: string[];
     thumbnail_url: string | null;

@@ -12,6 +12,7 @@ type ChainItem = {
   id: string;
   title: string;
   description: string | null;
+  public_story: string | null;
   photo_url: string | null;
   photo_urls: string[];
   thumbnail_url: string | null;
@@ -25,6 +26,12 @@ type ChainNode = {
 
 function getItemPreviewUrl(item: ChainNode["item"]) {
   return item.thumbnail_urls[0] || item.thumbnail_url || item.photo_urls[0] || item.photo_url;
+}
+
+function hasPublicText(value: string | null | undefined) {
+  const text = (value || "").trim();
+
+  return Boolean(text) && text !== "-";
 }
 
 function formatDealDate(value: string | null) {
@@ -46,6 +53,7 @@ function currentItemToChainItem(item: PublicCurrentItem): ChainItem {
     id: item.id,
     title: item.title,
     description: item.description,
+    public_story: item.public_story,
     photo_url: item.photo_url,
     photo_urls: item.photo_url ? [item.photo_url] : [],
     thumbnail_url: thumbnailUrl,
@@ -141,13 +149,11 @@ export function OffersPage() {
                 <h2>
                   <Link to={`/items/${node.item.id}`}>{node.item.title}</Link>
                 </h2>
-                {node.item.description && <p>{node.item.description}</p>}
+                {hasPublicText(node.item.description) && <p>{node.item.description}</p>}
+                {hasPublicText(node.item.public_story) && <p>{node.item.public_story}</p>}
 
                 {node.incomingDeal && (
                   <div className="exchange-meta">
-                    {node.incomingDeal.public_story && (
-                      <p>{node.incomingDeal.public_story}</p>
-                    )}
                     {node.incomingDeal.participant_visible &&
                       node.incomingDeal.participant_public_name && (
                         <p className="meta">
