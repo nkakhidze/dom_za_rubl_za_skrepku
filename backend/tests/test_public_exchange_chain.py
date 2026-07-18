@@ -55,12 +55,14 @@ def create_item(
     title: str,
     *,
     description: str | None = None,
+    public_story: str | None = None,
     photo_url: str | None = None,
     is_public: bool = True,
 ) -> Item:
     item = Item(
         title=title,
         description=description,
+        public_story=public_story,
         item_type=ItemType.PHYSICAL_ITEM.value,
         owner_type=OwnerType.PERSONAL.value,
         status=ItemStatus.ACTIVE.value,
@@ -110,6 +112,7 @@ def seed_exchange_chain(db: Session) -> dict[str, Deal]:
         db,
         "Ручка",
         description="Шариковая ручка",
+        public_story="Публичная история ручки",
         photo_url="/uploads/images/pen.jpg",
     )
     notebook = create_item(db, "Блокнот")
@@ -186,12 +189,14 @@ def test_public_exchange_chain_returns_public_completed_deals_with_items(client)
         "id": str(deals["first_deal"].given_item_id),
         "title": "Скрепка",
         "description": "Обычная канцелярская скрепка",
+        "public_story": None,
         "photo_url": "/uploads/images/paperclip.jpg",
         "thumbnail_url": "/uploads/images/paperclip.jpg",
         "photo_urls": ["/uploads/images/paperclip.jpg"],
         "thumbnail_urls": ["/uploads/images/paperclip.jpg"],
     }
     assert payload[0]["received_item"]["title"] == "Ручка"
+    assert payload[0]["received_item"]["public_story"] == "Публичная история ручки"
     assert payload[0]["received_item"]["photo_url"] == "/uploads/images/pen.jpg"
     assert payload[0]["received_item"]["thumbnail_url"] == "/uploads/images/pen.jpg"
     assert payload[0]["received_item"]["photo_urls"] == ["/uploads/images/pen.jpg"]

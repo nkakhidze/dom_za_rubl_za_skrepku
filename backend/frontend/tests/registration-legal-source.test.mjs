@@ -17,15 +17,27 @@ test("frontend exposes user registration, account and legal routes", () => {
   assert.match(mainSource, /path="\/legal\/:documentSlug"/);
 });
 
-test("registration page sends required consents and optional marketing channels", () => {
-  assert.match(registerPageSource, /is_adult_confirmed/);
+test("registration page confirms legal terms by continuing and sends document versions", () => {
+  assert.match(registerPageSource, /Продолжая регистрацию/);
+  assert.match(registerPageSource, /Пользовательским соглашением/);
+  assert.match(registerPageSource, /Политикой конфиденциальности/);
+  assert.match(registerPageSource, /Согласие на обработку персональных данных/);
+  assert.match(registerPageSource, /При регистрации будут зафиксированы версии документов/);
+  assert.match(registerPageSource, /target="_blank"/);
+  assert.match(registerPageSource, /rel="noreferrer"/);
+  assert.match(registerPageSource, /is_adult_confirmed:\s*true/);
   assert.match(registerPageSource, /user_agreement/);
+  assert.match(registerPageSource, /user_agreement:\s*\{[\s\S]*accepted:\s*true/);
   assert.match(registerPageSource, /personal_data_consent/);
+  assert.match(registerPageSource, /personal_data_consent:\s*\{[\s\S]*accepted:\s*true/);
   assert.match(registerPageSource, /privacy_policy_version/);
   assert.match(registerPageSource, /marketing_consent/);
   assert.match(registerPageSource, /marketingEmail/);
   assert.match(registerPageSource, /marketingTelegram/);
   assert.match(registerPageSource, /marketingMax/);
+  assert.doesNotMatch(registerPageSource, /setIsAdultConfirmed/);
+  assert.doesNotMatch(registerPageSource, /setUserAgreementAccepted/);
+  assert.doesNotMatch(registerPageSource, /setPersonalDataConsentAccepted/);
 });
 
 test("api client supports legal documents, registration and account updates", () => {

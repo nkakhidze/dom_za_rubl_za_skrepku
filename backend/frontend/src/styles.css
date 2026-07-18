@@ -749,6 +749,22 @@ h3 {
   margin-top: 6px;
 }
 
+.legal-agreement-copy {
+  color: #697267;
+  display: grid;
+  gap: 8px;
+  line-height: 1.5;
+  max-width: 760px;
+}
+
+.legal-agreement-copy p {
+  margin: 0;
+}
+
+.legal-version-note {
+  font-size: 0.9rem;
+}
+
 .legal-document {
   max-width: 860px;
 }
